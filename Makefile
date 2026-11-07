@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu cov env gate0 disk \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -36,11 +36,18 @@ test:  ## unit tests without GPU or dataset
 test-gpu:  ## GPU-only tests
 	uv run pytest -m gpu
 
+test-data:  ## tests that need the SpaceNet 6 sample under $(SAMPLE)
+	SAMPLE=$(SAMPLE) uv run pytest -m data
+
 env:  ## print the environment fingerprint (torch, CUDA, GPU, package versions)
 	uv run python -m geoinfer.utils.runinfo
 
 gate0:  ## Gate 0: SAR + optical twin open and render a quick-look
 	uv run python scripts/gate0_check.py --sample $(SAMPLE) --out docs/figures
+
+cog:  ## convert a raster to COG: make cog SRC=in.tif DST=out.tif
+	@test -n "$(SRC)" -a -n "$(DST)" || { echo "usage: make cog SRC=in.tif DST=out.tif"; exit 2; }
+	uv run python -m geoinfer.io.cog "$(SRC)" "$(DST)"
 
 disk:  ## free space on WSL root, C: and D: (C: fills fast)
 	@df -h / /mnt/c /mnt/d 2>/dev/null | awk 'NR==1 || /\/$$|\/mnt\/[cd]$$/'
