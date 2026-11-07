@@ -19,3 +19,16 @@ sar:
 stats:
   tile_stride: 1                     # use every n-th train tile
   out_dir: data/processed/stats      # DVC-tracked (data/processed/stats.dvc)
+
+coreg:                               # SAR vs optical alignment check (pipeline stage 2)
+  window: 1024                       # central window; SN6 900 px tiles are used whole
+  sobel_ksize: 3
+  upsample: 50                       # sub-pixel precision 1/50 px (upsampled DFT)
+  optical_bands: [1, 2, 3]           # luminance from RGB
+
+clouds:                              # synthetic clouds for the S3 robustness curve
+  beta: 2.2                          # spectral slope of the fractal noise (power ~ 1/f^beta)
+  softness: 0.15                     # width of the cloud edge in noise units
+  coverages: [0.0, 0.2, 0.4, 0.6, 0.8]
+  brightness: null                   # DN per band; null = train-split p98 white point
+  seed: 42
