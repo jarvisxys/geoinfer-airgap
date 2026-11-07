@@ -1,0 +1,104 @@
+[project]
+name = "geoinfer"
+version = "0.0.1"
+description = "Air-gapped geospatial ML inference platform for multi-sensor (SAR + optical) imagery (HSR-AIML-034)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Aditya Kumar" }]
+
+# Core DIP stack: everything the graded pipeline (io, preprocess, tiling,
+# postprocess, eval) needs. No deep-learning or service deps here.
+dependencies = [
+    "numpy>=2.3,<3",
+    "rasterio==1.5.2",
+    "shapely>=2.2,<2.3",
+    "pyproj>=3.7",
+    "geopandas>=1.1",
+    "opencv-python-headless>=4.12,<5",
+    "scikit-image>=0.25",
+    "matplotlib>=3.10",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Training and PyTorch inference. Default PyPI wheels ship CUDA 13 and cover
+# sm_75 (GTX 1650) and sm_120 (RTX PRO 6000), so one lockfile serves both machines.
+ml = [
+    "torch==2.14.1",
+    "torchvision==0.29.2",
+    "segmentation-models-pytorch>=0.5,<0.7",
+]
+# FP16 inference engines (comparison S4). TensorRT is installed on the server only.
+export = [
+    "onnx>=1.20",
+    "onnxruntime-gpu==1.31.1",
+]
+# Offline REST service (Phase 3).
+serve = [
+    "fastapi>=0.162,<0.163",
+    "uvicorn>=0.54",
+    "pydantic>=2.12,<3",
+    "sqlalchemy>=2.0,<2.2",
+    "psycopg[binary]>=3.2",
+    "geoalchemy2==0.21.0",
+    "alembic>=1.16",
+    "prometheus-client>=0.22",
+    "nvidia-ml-py>=13",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17,<0.18",
+    "mypy>=2.0",
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "types-pyyaml",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv]
+# Laptop (WSL2) and the college server are both Linux; keep the lock small.
+environments = ["sys_platform == 'linux'"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "NPY", "PT", "RUF"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["rasterio.*", "geopandas.*", "shapely.*", "skimage.*", "cv2.*", "torch.*", "torchvision.*", "segmentation_models_pytorch.*", "pynvml.*", "matplotlib.*"]
+ignore_missing_imports = true
+
+# torch is installed locally but not in CI; treat it as untyped in both so mypy agrees.
+[[tool.mypy.overrides]]
+module = ["torch", "torch.*"]
+follow_imports = "skip"
+follow_untyped_imports = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "gpu: needs a CUDA GPU (run with `make test-gpu`)",
+    "data: needs the SpaceNet 6 sample under ~/geo-data/sample",
+]
+
+[tool.coverage.run]
+source = ["geoinfer"]
+branch = true

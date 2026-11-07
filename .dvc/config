@@ -1,0 +1,5 @@
+[core]
+    remote = dlocal
+    autostage = true
+['remote "dlocal"']
+    url = /mnt/d/geo/dvc-store

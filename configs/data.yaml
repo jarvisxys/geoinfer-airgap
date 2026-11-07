@@ -1,0 +1,20 @@
+# Dataset locations and split sources (SpaceNet 6, AOI 11 Rotterdam).
+raw_root: /mnt/d/geo/raw/sn6            # read-only
+sample_root: ~/geo-data/sample          # D1, extracted on WSL ext4
+work_root: ~/geo-data                   # small working subset only
+
+aoi: AOI_11_Rotterdam
+modalities:
+  sar: SAR-Intensity                    # 4 bands, float32 linear intensity
+  optical: PS-RGBNIR                    # 4 bands, uint16
+tile_id_regex: '_(\d{14}_\d{14}_tile_\d+)\.tif$'
+
+splits:                                 # split by geography, never randomly
+  train_extent: extents_masks/SN6_AOI_11_Rotterdam_Train-Extent.geojson
+  val_extent: extents_masks/SN6_AOI_11_Rotterdam_Val-Extent.geojson
+  tune_strip_fraction: 0.15             # eastern strip of Train used for threshold tuning
+  out_dir: data/splits
+
+labels:
+  val_buildings: geojson_buildings/SN6_AOI_11_Rotterdam_Buildings_All-Val.geojson
+  min_building_m2: 20

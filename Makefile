@@ -1,0 +1,52 @@
+.DEFAULT_GOAL := help
+SHELL := /bin/bash
+
+SAMPLE ?= $(HOME)/geo-data/sample
+CFG ?= configs/train_fused.yaml
+
+.PHONY: help setup setup-ci check lint fmt types test test-gpu cov env gate0 disk \
+        train export serve bench bundle figures clean
+
+help:  ## list targets
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+
+setup:  ## laptop/server env: core + torch + onnx + service + dev tools, git hooks
+	uv sync --extra ml --extra export --extra serve
+	pre-commit install
+
+setup-ci:  ## CPU-only env used by CI (no torch)
+	uv sync --frozen --extra serve
+
+check: lint types test disk  ## everything CI runs, plus a disk check
+
+lint:  ## ruff lint + format check
+	uv run ruff check
+	uv run ruff format --check
+
+fmt:  ## auto-fix lint and format
+	uv run ruff check --fix
+	uv run ruff format
+
+types:  ## mypy on src/
+	uv run mypy src
+
+test:  ## unit tests without GPU or dataset
+	uv run pytest -m "not gpu and not data" --cov=geoinfer
+
+test-gpu:  ## GPU-only tests
+	uv run pytest -m gpu
+
+env:  ## print the environment fingerprint (torch, CUDA, GPU, package versions)
+	uv run python -m geoinfer.utils.runinfo
+
+gate0:  ## Gate 0: SAR + optical twin open and render a quick-look
+	uv run python scripts/gate0_check.py --sample $(SAMPLE) --out docs/figures
+
+disk:  ## free space on WSL root, C: and D: (C: fills fast)
+	@df -h / /mnt/c /mnt/d 2>/dev/null | awk 'NR==1 || /\/$$|\/mnt\/[cd]$$/'
+
+train export serve bench bundle figures:  ## (later phases)
+	@echo "'$@' is not implemented yet; see the phase plan in docs/"
+
+clean:  ## remove caches
+	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov

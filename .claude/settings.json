@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm *geo/raw*)",
+      "Bash(mv *geo/raw*)",
+      "Bash(dd *geo/raw*)",
+      "Bash(truncate *geo/raw*)",
+      "Bash(shred *geo/raw*)",
+      "Bash(find *geo/raw* -delete*)",
+      "Edit(//mnt/d/geo/raw/**)",
+      "Write(//mnt/d/geo/raw/**)"
+    ]
+  }
+}

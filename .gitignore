@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Secrets
+.env
+.env.*
+
+# Data and models never go in Git (use DVC; see docs/setup.md)
+/data/raw/
+/data/interim/
+/data/processed/
+/models/
+/outputs/
+*.tif
+*.tiff
+*.vrt
+*.tar.gz
+*.zip
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+*.plan
+*.npy
+*.memmap
+# small test fixtures are allowed
+!tests/fixtures/**
+
+# Experiment tracking
+mlruns/
+runs/
+lightning_logs/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json
