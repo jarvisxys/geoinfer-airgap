@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # CPU-only: core DIP stack + service deps, no torch (keeps CI fast).
+      - name: Install
+        run: uv sync --frozen --extra serve
+
+      - name: Lint
+        run: uv run ruff check
+
+      - name: Format
+        run: uv run ruff format --check
+
+      - name: Types
+        run: uv run mypy src
+
+      - name: Tests
+        run: uv run pytest -m "not gpu and not data" --cov=geoinfer --cov-report=term-missing
