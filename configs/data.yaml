@@ -2,6 +2,7 @@
 raw_root: /mnt/d/geo/raw/sn6            # read-only
 sample_root: ~/geo-data/sample          # D1, extracted on WSL ext4
 work_root: ~/geo-data                   # small working subset only
+interim_root: /mnt/d/geo/interim/sn6/train/train/AOI_11_Rotterdam   # D2 extracted (SAR, PS-RGBNIR, labels)
 
 aoi: AOI_11_Rotterdam
 modalities:
@@ -15,7 +16,14 @@ splits:                                 # split by geography, never randomly
   train_extent: extents_masks/SN6_AOI_11_Rotterdam_Train-Extent.geojson
   val_extent: extents_masks/SN6_AOI_11_Rotterdam_Val-Extent.geojson
   tune_strip_fraction: 0.15             # eastern strip of Train used for threshold tuning
+  rule: inside                          # tile footprint must lie fully inside one region
+  tolerance_m: 0.5                      # one pixel of slack at region edges
   out_dir: data/splits
+
+subset:                                 # laptop working subset (COG copies on WSL ext4)
+  root: ~/geo-data/subset
+  counts: {train: 120, tune: 30, val: 50}
+  min_free_gb: 5                        # refuse to fill the C: drive below this
 
 labels:
   val_buildings: geojson_buildings/SN6_AOI_11_Rotterdam_Buildings_All-Val.geojson
