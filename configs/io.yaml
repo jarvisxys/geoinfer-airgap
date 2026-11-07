@@ -1,0 +1,13 @@
+# Raster I/O: COG conversion, windowed reads and writes.
+cog:
+  blocksize: 512                  # internal tile size (px); multiple of 16
+  compress: DEFLATE               # lossless
+  predictor: "YES"                # GDAL picks 2 (integers) or 3 (floats)
+  overview_resampling: AVERAGE    # imagery; masks pass NEAREST explicitly
+  num_threads: ALL_CPUS
+
+gdal_cachemax_mb: 512             # GDAL block cache; fits the 5 GB WSL limit
+max_window_px: 16777216           # 4096 x 4096; larger single reads are refused
+
+read_only_roots:                  # nothing is ever written under these
+  - /mnt/d/geo/raw
