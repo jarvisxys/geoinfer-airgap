@@ -13,8 +13,8 @@ FastAPI / PostGIS / Docker service is the delivery vehicle.
 
 | Phase | Scope | Gate | Status |
 |---|---|---|---|
-| 0 | Setup: env, repo, CI, data download | CI green; GPU visible from PyTorch and Docker; sample tiles render | in progress |
-| 1 | DIP core: io, normalisation, SAR despeckle, tiling, stitching, morphology, metrics | `v0.1-dip` | |
+| 0 | Setup: env, repo, CI, data download | CI green; GPU visible from PyTorch and Docker; sample tiles render | done |
+| 1 | DIP core: io, normalisation, SAR despeckle, tiling, stitching, morphology, metrics | `v0.1-dip` | in progress |
 | 2 | Models: optical / SAR / fused U-Net, S1-S3 studies | `v0.2-models` | |
 | 3 | Offline service: ONNX, FastAPI, worker, Docker, offline bundle | `v0.3-service` | |
 | 4 | Benchmarks: S4 engines, E1-E6 serving experiments | `v0.4-bench` | |
