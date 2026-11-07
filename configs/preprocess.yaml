@@ -9,7 +9,7 @@ sar:
   percentiles: [1.0, 99.0]          # clip range in dB
   hist: {min: 0.0, max: 100.0, step: 0.01}   # dB bins; out-of-range values go to end bins
   enl: null                          # filled in from estimate_enl on train tiles
-  enl_estimate: {window: 32, quantile: 0.05}
+  enl_estimate: {window: 32, quantile: 0.05, tile_stride: 10}
   arms:                              # S2 SAR variants
     linear: {lee: null, domain: linear, clip: false}   # baseline: raw intensity
     db: {lee: null, domain: db, clip: true}
