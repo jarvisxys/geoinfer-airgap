@@ -5,7 +5,9 @@ work_root: ~/geo-data                   # small working subset only
 
 aoi: AOI_11_Rotterdam
 modalities:
-  sar: SAR-Intensity                    # 4 bands, float32 linear intensity
+  sar: SAR-Intensity                    # 4 pols (HH, HV, VH, VV), float32, already dB:
+                                        # 10*log10 of 2x2-multilooked intensity;
+                                        # 0 = nodata, 1e-5 = clipped floor (valid)
   optical: PS-RGBNIR                    # 4 bands, uint16
 tile_id_regex: '_(\d{14}_\d{14}_tile_\d+)\.tif$'
 

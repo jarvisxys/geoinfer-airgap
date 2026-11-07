@@ -53,7 +53,8 @@ def main() -> None:
     print(f"same CRS + geotransform: {same_grid}")
 
     with tempfile.TemporaryDirectory() as tmp:
-        sar_img = render_quicklook(sar, Path(tmp) / "sar.png", [1], max_size=450, sar_db=True)
+        # SN6 SAR-Intensity is already 10*log10 (dB); no second log here.
+        sar_img = render_quicklook(sar, Path(tmp) / "sar.png", [1], max_size=450)
         opt_img = render_quicklook(opt, Path(tmp) / "opt.png", [1, 2, 3], max_size=450)
     side = np.hstack([cv2.cvtColor(sar_img, cv2.COLOR_GRAY2RGB), opt_img])
     a.out.mkdir(parents=True, exist_ok=True)

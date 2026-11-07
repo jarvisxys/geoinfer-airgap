@@ -102,7 +102,8 @@ def render_quicklook(
     max_size
         Longest side of the output in pixels.
     sar_db
-        Convert linear SAR intensity to dB (``10 * log10``) before stretching.
+        Convert linear SAR intensity to dB (``10 * log10``) before stretching. Leave
+        False for SpaceNet 6 SAR-Intensity, which is already in dB.
 
     Returns
     -------
