@@ -41,6 +41,8 @@ class TilingConfig:
         Scenes with more pixels than this accumulate in a disk memmap.
     scratch_dir
         Directory for memmap files.
+    out_nodata
+        Nodata value of stitched outputs (NaN by default).
     sweep_tile, sweep_overlap
         Values swept in studies S1 and S4.
     """
@@ -52,6 +54,7 @@ class TilingConfig:
     skip_nodata: bool
     memmap_min_px: int
     scratch_dir: Path
+    out_nodata: float
     sweep_tile: tuple[int, ...]
     sweep_overlap: tuple[int, ...]
 
@@ -80,6 +83,7 @@ def load_tiling_config(path: Path = DEFAULT_TILING_CONFIG) -> TilingConfig:
         skip_nodata=bool(raw["skip_nodata"]),
         memmap_min_px=int(raw["memmap_min_px"]),
         scratch_dir=Path(raw["scratch_dir"]).expanduser(),
+        out_nodata=float(raw["out_nodata"]),
         sweep_tile=tuple(int(t) for t in raw["sweep"]["tile"]),
         sweep_overlap=tuple(int(o) for o in raw["sweep"]["overlap"]),
     ).validate()

@@ -6,6 +6,7 @@ pad_mode: reflect                 # reflect | constant (zeros); padded pixels ar
 skip_nodata: true                 # tiles with no valid pixel are not inferred
 memmap_min_px: 50000000           # larger scenes accumulate in a disk memmap (2 x float32)
 scratch_dir: ~/geo-data/scratch   # memmap location; WSL ext4 (fast), not the USB drive
+out_nodata: .nan                  # stitched pixels no tile covered
 
 sweep:                            # S1 / S4 grid
   tile: [256, 512, 1024]
