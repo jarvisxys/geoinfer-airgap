@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb masks weights \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb masks weights overfit \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -101,7 +101,13 @@ figures-nb:  ## run notebooks/02_dip_figures.ipynb headless (S2 figures); output
 
 figures: gate0 splits coreg d4-quicklook postprocess-check s1 otsu figures-nb  ## rebuild every report figure (~7 min; needs data, stats, D4)
 
-train export serve bench bundle:  ## (later phases)
+train:  ## train one model; CFG is the config, SET the overrides (see train.py --set)
+	uv run python -m geoinfer.train.train --config $(CFG) $(if $(SET),--set $(SET))
+
+overfit:  ## laptop sanity check: overfit 8 fixed crops (configs/train_overfit.yaml)
+	uv run python -m geoinfer.train.train --config configs/train_overfit.yaml
+
+serve export bench bundle:  ## (later phases)
 	@echo "'$@' is not implemented yet; see the phase plan in docs/"
 
 clean:  ## remove caches
