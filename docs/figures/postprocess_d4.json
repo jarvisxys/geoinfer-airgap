@@ -1,0 +1,40 @@
+{
+  "scene": "D4 2621 x 15451 px, 91.8% valid",
+  "noise": {
+    "speck_px": 485367,
+    "hole_px": 144631,
+    "blobs": 18587,
+    "seed": 42
+  },
+  "config": {
+    "threshold": 0.5,
+    "opening": 3,
+    "closing": 3,
+    "min_area_m2": 20.0,
+    "connectivity": 4,
+    "block": 2048
+  },
+  "pixel_raw": {
+    "iou": 0.8278,
+    "f1": 0.9058,
+    "precision": 0.8496,
+    "recall": 0.9699
+  },
+  "pixel_cleaned": {
+    "iou": 0.9476,
+    "f1": 0.9731,
+    "precision": 0.9892,
+    "recall": 0.9575
+  },
+  "components": {
+    "labels": 4627,
+    "raw": 473705,
+    "cleaned": 2497
+  },
+  "blockwise_equals_whole": true,
+  "seconds": {
+    "blockwise_from_disk": 1.1,
+    "whole_in_ram": 0.4
+  },
+  "blockwise_extra_anon_mib": 498.0
+}

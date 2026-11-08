@@ -1,0 +1,9 @@
+# Post-processing of stitched building probabilities (pipeline step 8).
+threshold: 0.5                    # placeholder; tuned on the tune split in Phase 2
+opening: 3                        # square kernel side in px (odd); 1 disables; drops specks
+closing: 3                        # square kernel side in px (odd); 1 disables; fills roof holes
+min_area_m2: 20                   # smaller components are removed (80 px at 0.5 m); eval uses it too
+connectivity: 4                   # 4 keeps diagonally touching buildings apart
+simplify_tolerance_m: 0.5         # Douglas-Peucker tolerance (1 px at 0.5 m)
+block: 2048                       # block side in px for scene-size rasters (plus a computed halo)
+geojson_crs: EPSG:4326            # RFC 7946 export CRS; --native-crs keeps the raster CRS
