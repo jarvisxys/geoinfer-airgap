@@ -79,3 +79,30 @@ so the D4 SAR input has brightness steps at strip joins (the optical mosaic is
 seamless). S1 seam metrics on D4 must exclude pixels near strip-ID changes, or they
 would count acquisition seams as stitching seams. D3 (369 Mpx optical) stays the
 large-scale memory and throughput test.
+
+## D4. S2 gets a per-strip SAR normalisation arm (2026-11-08)
+
+**Finding:** the Otsu baseline on D4 (`make otsu`, `docs/figures/otsu_d4.json`) shows
+the median SAR dB of the 132 strips in D4 ranging from 15.3 to 44.0 dB (29 dB). Per-strip
+Otsu thresholds beat one scene threshold by 0.03-0.05 IoU. The plan's S2 SAR arms use one
+global percentile clip and z-score, which keeps those offsets, so a network would have to
+learn each acquisition's calibration.
+
+**Decision:** S2 gets one extra SAR arm, `db_lee7_strip` (configs/preprocess.yaml): Lee
+7 x 7 on linear intensity, dB, clip to the strip's own 1st-99th percentiles, z-score with
+the strip's own clipped mean and std. Lee 7 because it was the best Otsu arm; the arm
+is compared against the global `db_lee7` arm in S2.
+
+- Statistics: `make strip-stats` (`scripts/compute_strip_stats.py`) streams all D2 SAR
+  tiles of each strip, from every split, into `data/processed/stats/strip_stats.json`
+  (DVC). They use input pixels only, never labels: this is what a deployed system can
+  compute from a new scene itself, so no label leakage.
+- Strips with fewer than 1,000,000 valid pixels fall back to the global `db_lee7` stats
+  (`select_arm_stats`); `apply_sar_arm` applies either.
+- Result over all 3401 D2 tiles (47 min): 204 strips, none needs the fallback; the
+  per-strip mean (Lee 7, clipped) spans 30.1 / 33.6 / 33.8 / 33.4 dB across strips for
+  the four polarisations, wider than the 29 dB seen in D4.
+
+**Cost:** one more SAR-only training run in Phase 2. Per-tile normalisation was not
+added: a 450 m tile is often mostly water or fields, so its own statistics are less
+stable than a strip's.

@@ -15,6 +15,12 @@ sar:
     db: {lee: null, domain: db, clip: true}
     db_lee5: {lee: 5, domain: db, clip: true}
     db_lee7: {lee: 7, domain: db, clip: true}
+    # per-acquisition normalisation (decision D4): each strip's own percentiles and
+    # moments, from all D2 tiles of that strip; small strips fall back to db_lee7
+    db_lee7_strip: {lee: 7, domain: db, clip: true, scope: strip, fallback: db_lee7}
+  strip_stats:
+    min_valid_px: 1000000            # fewer valid pixels -> use the fallback arm
+    out: strip_stats.json            # in stats.out_dir, next to stats.json
 
 stats:
   tile_stride: 1                     # use every n-th train tile

@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats coreg tile-check d4 vectorize s1 otsu \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -57,6 +57,9 @@ subset:  ## ~200-tile working subset (COGs) in ~/geo-data/subset; needs splits
 
 stats:  ## S2 train-split normalisation stats (needs data/splits/train.txt)
 	uv run python scripts/compute_stats.py
+
+strip-stats:  ## per-strip SAR stats for strip-scoped S2 arms (needs make stats)
+	uv run python scripts/compute_strip_stats.py
 
 coreg:  ## SAR vs optical shift table and figure on the working subset
 	uv run python scripts/coreg_check.py

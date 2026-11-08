@@ -8,7 +8,8 @@ are set to 0 in every output.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -95,3 +96,54 @@ def zscore(
     out = (x.astype(np.float64) - mean_) / std_
     out[:, ~valid] = 0.0
     return out.astype(np.float32)
+
+
+def select_arm_stats(
+    strip: str | None,
+    global_stats: Mapping[str, Any],
+    strip_stats: Mapping[str, Mapping[str, Any] | None],
+) -> tuple[Mapping[str, Any], str]:
+    """Statistics for a strip-scoped arm: the strip's own, else the global arm's.
+
+    Returns
+    -------
+    tuple
+        ``(stats, source)`` with ``source`` ``"strip"`` or ``"fallback"``.
+    """
+    own = strip_stats.get(strip) if strip is not None else None
+    return (own, "strip") if own is not None else (global_stats, "fallback")
+
+
+def apply_sar_arm(
+    db: npt.NDArray[Any],
+    valid: BoolArray,
+    stats: Mapping[str, Any],
+    domain: Literal["db", "linear"],
+    clip: bool,
+) -> FloatArray:
+    """Normalise SAR for one S2 arm: domain -> optional percentile clip -> z-score.
+
+    Parameters
+    ----------
+    db
+        ``(bands, h, w)`` dB after the arm's speckle filter (``sar_chain``).
+    valid
+        ``(h, w)`` mask of usable pixels; invalid pixels come out as 0.
+    stats
+        ``p_lo``, ``p_hi``, ``mean``, ``std`` per band in the arm's domain (global or
+        per strip).
+    domain
+        ``db`` or ``linear`` (``10 ** (dB / 10)``).
+    clip
+        Clip to ``[p_lo, p_hi]`` before standardising.
+    """
+    if domain not in ("db", "linear"):
+        raise ValueError(f"domain must be 'db' or 'linear', got {domain!r}")
+    x = db.astype(np.float64)
+    if domain == "linear":
+        x = np.power(10.0, x / 10.0)
+    if clip:
+        n = x.shape[0]
+        lo, hi = _per_band(stats["p_lo"], n, "p_lo"), _per_band(stats["p_hi"], n, "p_hi")
+        x = np.clip(x, lo, hi)
+    return zscore(x, valid, stats["mean"], stats["std"])
