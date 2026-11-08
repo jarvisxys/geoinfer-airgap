@@ -19,3 +19,21 @@ sar:
 stats:
   tile_stride: 1                     # use every n-th train tile
   out_dir: data/processed/stats      # DVC-tracked (data/processed/stats.dvc)
+
+coreg:                               # SAR vs optical alignment check (pipeline stage 2),
+                                     # masked NCC of edge maps
+  window: 1024                       # central window; SN6 900 px tiles are used whole
+  sobel_ksize: 3
+  blur_sigma: 2.0                    # px; smooths SAR speckle before the edges
+  max_shift: 32                      # search radius in px (16 m)
+  overlap_ratio: 0.3                 # min shared valid area per lag
+  optical_bands: [1, 2, 3]           # luminance from RGB
+  min_valid: 0.5                     # skip tiles with less valid overlap than this
+  grid_tol_m: 0.001                  # SAR/optical tile origins agree to ~2e-6 m in SN6
+
+clouds:                              # synthetic clouds for the S3 robustness curve
+  beta: 2.2                          # spectral slope of the fractal noise (power ~ 1/f^beta)
+  softness: 0.15                     # width of the cloud edge in noise units
+  coverages: [0.0, 0.2, 0.4, 0.6, 0.8]
+  brightness: null                   # DN per band; null = train-split p98 white point
+  seed: 42
