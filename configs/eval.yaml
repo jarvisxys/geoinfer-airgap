@@ -13,3 +13,12 @@ s1:                               # stitching study
     tile_bias_sd: 0.08            # per-tile calibration offset, normal sd
     label_blur_px: 1.0            # soft building edges
     seed: 42
+
+otsu:                             # classical "no deep learning" baseline on SAR (plan step 6)
+  scene: d4
+  stats_json: data/processed/stats/stats.json   # train-split ENL for the Lee filter
+  bins: 1000
+  range_db: [0.0, 100.0]          # SN6 SAR-Intensity dB values lie well inside this
+  lee: [null, 5, 7]               # S2 arms: no filter, Lee 5 x 5, Lee 7 x 7
+  scopes: [scene, strip]          # one threshold per scene, or per acquisition strip
+  block_rows: 1024

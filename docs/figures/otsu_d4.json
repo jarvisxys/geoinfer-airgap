@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "scene": "D4 2621 x 15451 px, 91.8% valid",
+    "enl": 2.124,
+    "bins": 1000,
+    "range_db": [
+      0.0,
+      100.0
+    ],
+    "postprocess": {
+      "opening": 3,
+      "closing": 3,
+      "min_area_m2": 20.0,
+      "connectivity": 4
+    },
+    "foreground": "feature > threshold (bright returns)"
+  },
+  "results": [
+    {
+      "variant": "raw dB / scene Otsu",
+      "threshold_db": 31.45,
+      "strip_threshold_range_db": 0.0,
+      "iou_raw": 0.111,
+      "iou_clean": 0.0998,
+      "f1_clean": 0.1814,
+      "precision_clean": 0.1163,
+      "recall_clean": 0.4122,
+      "object_f1": 0.0051,
+      "feature_s": 19.2
+    },
+    {
+      "variant": "raw dB / strip Otsu",
+      "threshold_db": "per strip",
+      "strip_threshold_range_db": 28.7,
+      "iou_raw": 0.1374,
+      "iou_clean": 0.1374,
+      "f1_clean": 0.2417,
+      "precision_clean": 0.2368,
+      "recall_clean": 0.2467,
+      "object_f1": 0.0097,
+      "feature_s": 19.2
+    },
+    {
+      "variant": "Lee 5 / scene Otsu",
+      "threshold_db": 32.25,
+      "strip_threshold_range_db": 0.0,
+      "iou_raw": 0.117,
+      "iou_clean": 0.1148,
+      "f1_clean": 0.206,
+      "precision_clean": 0.1285,
+      "recall_clean": 0.5189,
+      "object_f1": 0.0056,
+      "feature_s": 48.4
+    },
+    {
+      "variant": "Lee 5 / strip Otsu",
+      "threshold_db": "per strip",
+      "strip_threshold_range_db": 28.2,
+      "iou_raw": 0.1599,
+      "iou_clean": 0.1598,
+      "f1_clean": 0.2756,
+      "precision_clean": 0.2357,
+      "recall_clean": 0.3319,
+      "object_f1": 0.012,
+      "feature_s": 48.4
+    },
+    {
+      "variant": "Lee 7 / scene Otsu",
+      "threshold_db": 32.35,
+      "strip_threshold_range_db": 0.0,
+      "iou_raw": 0.1192,
+      "iou_clean": 0.1164,
+      "f1_clean": 0.2086,
+      "precision_clean": 0.13,
+      "recall_clean": 0.5282,
+      "object_f1": 0.0053,
+      "feature_s": 45.9
+    },
+    {
+      "variant": "Lee 7 / strip Otsu",
+      "threshold_db": "per strip",
+      "strip_threshold_range_db": 27.8,
+      "iou_raw": 0.1694,
+      "iou_clean": 0.1678,
+      "f1_clean": 0.2873,
+      "precision_clean": 0.2475,
+      "recall_clean": 0.3424,
+      "object_f1": 0.0133,
+      "feature_s": 45.9
+    }
+  ]
+}
