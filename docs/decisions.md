@@ -28,3 +28,24 @@ another product; about 40 GB for the Val extent).
 
 **Cost:** a smaller held-out set than the official Val, and val sits next to train
 instead of in a separate district. The dropped boundary tiles keep the two apart.
+
+## D2. SAR/optical offset is logged, not corrected (2026-11-08)
+
+**Finding (S2, pipeline stage 2):** `make coreg` on the 200-tile subset (masked NCC of
+smoothed edge maps, `docs/figures/coreg_shifts.{csv,png}`) finds a real SAR-to-optical
+offset that depends on the SAR look direction (`SAR_orientations.txt`):
+
+| Look direction | Tiles | Median dx, dy (px, 0.5 m) | Per-strip behaviour |
+|---|---|---|---|
+| 1 | 88 | -3.0, -2.1 | consistent, 2-4 px spread within a strip |
+| 0 | 112 | +0.5, +7.4 | strip medians -2 to +16 px dy, 6-11 px spread |
+
+The range-direction (dy) offsets have opposite signs for the two look directions, which
+fits building layover; the asymmetry suggests a smaller common offset as well.
+SAR and optical tile grids themselves agree to 2e-6 m.
+
+**Decision:** no correction for now. Tiles are used on their native shared grid.
+
+**Revisit in S3:** if the fused model gains little over optical alone, test a per-strip
+shift correction (strip median from `make coreg`) and report fused IoU with and without
+it, split by look direction.
