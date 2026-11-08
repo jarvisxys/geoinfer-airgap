@@ -49,3 +49,33 @@ SAR and optical tile grids themselves agree to 2e-6 m.
 **Revisit in S3:** if the fused model gains little over optical alone, test a per-strip
 shift correction (strip median from `make coreg`) and report fused IoU with and without
 it, split by look direction.
+
+## D3. D4 is a val-tile mosaic, not a single acquisition (2026-11-08)
+
+**Plan:** D4 = one large held-out SAR scene (3-6 GiB) with exact optical co-registration
+and labels, built from D2 tiles with `gdalbuildvrt` + COG.
+
+**Finding:** no such scene exists in D2. Each strip is a band of about 900 m x 5 km
+(median 18 tiles); its val part is about 1800 x 1800 px. The val block is covered by
+tiles of about 200 overlapping strips, one look direction covers only 55 % of it, and
+each strip has its own sub-pixel grid origin (up to 0.5 px off a common 0.5 m lattice).
+
+**Decision:** `make d4` (`scripts/build_d4.py`) mosaics all 637 val tiles onto one 0.5 m
+grid (2621 x 15451 px, 40 Mpx):
+
+- nearest whole-pixel paste (values unchanged; positions move up to 0.5 px per axis,
+  the same for SAR and its optical twin, so SAR / optical co-registration is exact);
+- look direction 1 strips first, then 0, each in time order; first valid pixel wins;
+- labels: 46920 tile fragments merged by `Building_ID` into 4791 buildings
+  (`d4_buildings.geojson`) and rasterised as an instance raster (`d4_labels.tif`);
+- `d4_strips.tif` records which of the 125 contributing strips owns each pixel.
+
+Result: 91.8 % of the grid has valid SAR (49 % look direction 1, 43 % direction 0);
+outputs in `/mnt/d/geo/processed/sn6/d4/` with `d4.json`; quick-look
+`docs/figures/d4_overview.png`.
+
+**Caveat for S1:** SN6 SAR-Intensity is not radiometrically consistent between strips,
+so the D4 SAR input has brightness steps at strip joins (the optical mosaic is
+seamless). S1 seam metrics on D4 must exclude pixels near strip-ID changes, or they
+would count acquisition seams as stitching seams. D3 (369 Mpx optical) stays the
+large-scale memory and throughput test.

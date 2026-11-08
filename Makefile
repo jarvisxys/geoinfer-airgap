@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats coreg tile-check \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats coreg tile-check d4 \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -60,6 +60,9 @@ stats:  ## S2 train-split normalisation stats (needs data/splits/train.txt)
 
 coreg:  ## SAR vs optical shift table and figure on the working subset
 	uv run python scripts/coreg_check.py
+
+d4:  ## build D4 (val-tile SAR + optical + labels mosaic) under scenes.d4
+	uv run python scripts/build_d4.py
 
 tile-check:  ## tile -> identity -> stitch round trip on D3 (STRATEGY=hann)
 	uv run python scripts/tile_roundtrip.py --nodata 0 $(if $(STRATEGY),--strategy $(STRATEGY))
