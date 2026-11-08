@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats coreg tile-check d4 vectorize \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats coreg tile-check d4 vectorize s1 \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -64,6 +64,9 @@ coreg:  ## SAR vs optical shift table and figure on the working subset
 vectorize:  ## mask COG -> GeoJSON: make vectorize MASK=m.tif OUT=b.geojson [NATIVE=1]
 	@test -n "$(MASK)" -a -n "$(OUT)" || { echo "usage: make vectorize MASK=m.tif OUT=b.geojson"; exit 2; }
 	uv run python scripts/vectorize_mask.py "$(MASK)" "$(OUT)" $(if $(NATIVE),--native-crs)
+
+s1:  ## S1 stitching study on D4 (synthetic edge-defect model until Phase 2)
+	uv run python scripts/s1_stitching.py
 
 d4:  ## build D4 (val-tile SAR + optical + labels mosaic) under scenes.d4
 	uv run python scripts/build_d4.py
