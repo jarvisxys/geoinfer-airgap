@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -48,6 +48,12 @@ gate0:  ## Gate 0: SAR + optical twin open and render a quick-look
 cog:  ## convert a raster to COG: make cog SRC=in.tif DST=out.tif
 	@test -n "$(SRC)" -a -n "$(DST)" || { echo "usage: make cog SRC=in.tif DST=out.tif"; exit 2; }
 	uv run python -m geoinfer.io.cog "$(SRC)" "$(DST)"
+
+splits:  ## geographic train/tune/val split files from the extracted D2 tiles
+	uv run python scripts/build_splits.py
+
+subset:  ## ~200-tile working subset (COGs) in ~/geo-data/subset; needs splits
+	uv run python scripts/build_subset.py
 
 disk:  ## free space on WSL root, C: and D: (C: fills fast)
 	@df -h / /mnt/c /mnt/d 2>/dev/null | awk 'NR==1 || /\/$$|\/mnt\/[cd]$$/'
