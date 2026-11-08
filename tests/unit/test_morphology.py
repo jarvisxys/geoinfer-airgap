@@ -127,6 +127,20 @@ def test_clean_mask_runs_the_chain() -> None:
     np.testing.assert_array_equal(out, _square(60, 10, 10, 20))
 
 
+def test_clean_mask_never_marks_invalid_pixels_as_building() -> None:
+    # closing dilates first; it must not grow buildings into nodata
+    p = np.zeros((40, 40), dtype=np.float32)
+    p[5:35, 5:20] = 0.9
+    p[5:35, 21:30] = 0.9
+    valid = np.ones((40, 40), dtype=bool)
+    valid[:, 20] = False  # 1-px nodata column between the two halves
+    p[:, 20] = np.nan
+    out = clean_mask(p, valid, CFG, from_origin(0, 0, 0.5, 0.5))
+    assert not out[:, 20].any()
+    assert out[5:35, 5:20].all()
+    assert out[5:35, 21:30].all()
+
+
 @pytest.mark.parametrize("block", [17, 64, 100])
 @pytest.mark.parametrize("seed", [0, 1, 2])
 def test_blockwise_cleaning_equals_whole_array(block: int, seed: int) -> None:

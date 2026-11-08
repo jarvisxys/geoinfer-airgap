@@ -1,7 +1,8 @@
 """Binary clean-up of building probabilities (pipeline step 8).
 
 Chain: threshold -> opening (drops speckle and thin false positives) -> closing (fills
-roof holes) -> removal of components below ``min_area_m2``. OpenCV's default border
+roof holes) -> re-apply the valid mask (closing must not grow buildings into nodata) ->
+removal of components below ``min_area_m2``, counted on valid pixels. OpenCV's default border
 makes the scene edge neutral: erosion treats outside pixels as foreground and dilation
 as background, so objects touching the edge are not eaten away.
 
@@ -98,6 +99,8 @@ def clean_mask(
     """Threshold, open, close and remove small components (whole array)."""
     m = binarize(prob, cfg.threshold, valid)
     m = closing(opening(m, cfg.opening), cfg.closing)
+    if valid is not None:
+        m &= valid  # closing dilates first; never grow buildings into nodata
     return remove_small(m, min_area_px(transform, cfg.min_area_m2), cfg.connectivity)
 
 
