@@ -36,4 +36,4 @@ subset:                                 # laptop working subset (COG copies on W
 
 labels:
   val_buildings: geojson_buildings/SN6_AOI_11_Rotterdam_Buildings_All-Val.geojson
-  min_building_m2: 20
+  # minimum building area lives in configs/postprocess.yaml (min_area_m2)
