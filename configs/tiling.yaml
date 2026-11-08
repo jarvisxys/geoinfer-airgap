@@ -1,0 +1,12 @@
+# Tiling and stitching (pipeline steps 4 and 7; studies S1 and S4).
+tile: 512                         # T: tile side in px
+overlap: 64                       # O: even, 0 <= O < T; grid starts at -O/2, stride T - O
+strategy: hann                    # naive (O = 0) | crop | hann | tukey
+pad_mode: reflect                 # reflect | constant (zeros); padded pixels are invalid
+skip_nodata: true                 # tiles with no valid pixel are not inferred
+memmap_min_px: 50000000           # larger scenes accumulate in a disk memmap (2 x float32)
+scratch_dir: ~/geo-data/scratch   # memmap location; WSL ext4 (fast), not the USB drive
+
+sweep:                            # S1 / S4 grid
+  tile: [256, 512, 1024]
+  overlap: [0, 32, 64, 128]
