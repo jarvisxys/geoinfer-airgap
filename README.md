@@ -53,9 +53,28 @@ docs/           setup, server environment, experiments, figures
 
 ## Reproduce
 
-| Figure / table | Command | Expected runtime |
+Data builds (run once, in this order; each writes outside git or into DVC):
+
+| Output | Command | Runtime (laptop, USB drive) |
 |---|---|---|
-| Gate 0 quick-look | `make gate0` | < 10 s |
+| Split lists `data/splits/*.txt`, `docs/figures/splits_map.png` | `make splits` | ~2 min |
+| 200-tile working subset in `~/geo-data/subset` | `make subset` | ~25 min |
+| Train-split S2 statistics `data/processed/stats/` (DVC) | `make stats` | ~48 min |
+| Per-strip SAR statistics `strip_stats.json` (DVC, decision D4) | `make strip-stats` | ~47 min |
+| D4 scene (SAR, optical, labels, strips) | `make d4` | ~17 min |
+
+Figures and tables (`make figures` rebuilds all of them, ~15 min):
+
+| Figure / table (`docs/figures/`) | Command | Runtime |
+|---|---|---|
+| Gate 0 quick-look `gate0_sar_optical.png` | `make gate0` | < 10 s |
+| S2 figures `s2_*.png` + numbers `s2_metrics.json` (notebook 02) | `make figures-nb` | ~30 s |
+| Co-registration table and scatter `coreg_shifts.{csv,png}` | `make coreg` | ~1 min |
+| D4 quick-look `d4_overview.png` | `make d4-quicklook` | < 30 s |
+| Post-processing on D4 `postprocess_d4.{png,json}` | `make postprocess-check` | ~1 min |
+| S1 dry run (synthetic model) `s1_d4_synthetic.{png,json}` | `make s1` | ~2 min |
+| Classical SAR baseline `otsu_d4.{png,json}` | `make otsu` | ~6 min |
+| D3 tile -> stitch round trip (console table) | `make tile-check` | ~3 min |
 
 ## Licence
 

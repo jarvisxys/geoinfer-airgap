@@ -1,0 +1,74 @@
+{
+  "optical_seam": {
+    "seam_score": {
+      "per-tile min-max (baseline)": 2.6,
+      "global 2-98 % stretch (train split)": 0.92
+    },
+    "tiles": [
+      "20190804121908_20190804122131_tile_6661",
+      "20190804121908_20190804122131_tile_6662"
+    ]
+  },
+  "histograms": {
+    "db": {
+      "mean_db": 29.45,
+      "std_db": 7.42
+    },
+    "db_lee5": {
+      "mean_db": 30.53,
+      "std_db": 6.97
+    },
+    "db_lee7": {
+      "mean_db": 30.71,
+      "std_db": 6.94
+    }
+  },
+  "sar_patch": {
+    "homogeneous_window": [
+      16,
+      16,
+      32
+    ],
+    "linear": {
+      "enl": 6.05
+    },
+    "dB": {
+      "enl": 6.05,
+      "epi": 1.0
+    },
+    "Lee 5": {
+      "enl": 34.17,
+      "epi": 0.362
+    },
+    "Lee 7": {
+      "enl": 58.16,
+      "epi": 0.316
+    },
+    "tile": "20190804111224_20190804111453_tile_8689",
+    "crop": [
+      176,
+      16,
+      300
+    ]
+  },
+  "strip_calibration": {
+    "strips": 204,
+    "mean_spread_db": 30.14,
+    "fallback_strips": 0
+  },
+  "coreg_overlay": {
+    "edge_correlation_at_zero_shift": 0.28,
+    "tile": "20190822143613_20190822143904_tile_4907",
+    "shift_px": [
+      -1.774,
+      17.966
+    ]
+  },
+  "tiling_overlay": {
+    "tiles_o0": 18,
+    "lines_o": [
+      9,
+      15
+    ]
+  }
+}
