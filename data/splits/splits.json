@@ -1,0 +1,54 @@
+{
+  "counts": {
+    "dropped": 617,
+    "train": 1798,
+    "tune": 349,
+    "val": 637
+  },
+  "coverage_x_range": [
+    590112.0,
+    596702.1
+  ],
+  "regions_bounds": {
+    "train": [
+      590011.7,
+      5745458.9,
+      594395.5,
+      5753559.1
+    ],
+    "tune": [
+      594395.5,
+      5745458.9,
+      595384.0,
+      5753559.1
+    ],
+    "val": [
+      595384.0,
+      5745458.9,
+      597741.0,
+      5753559.1
+    ]
+  },
+  "rule": "inside",
+  "sha256": {
+    "train.txt": "3b72b94ca609819c80a980f786b5154ccc6b463e8376b38a19263298ee02b794",
+    "tune.txt": "f0b01289b8ab3a5f9b06fe82e71ef48e23f76cdb75b3ffe868b3ecfda2ab212a",
+    "val.txt": "e7754e79396499039abde95fd005a6066b4301aefff83d2c143a9bc9924bc01d"
+  },
+  "source": "SAR-Intensity tile headers, tiles with an optical twin",
+  "tiles_considered": 3401,
+  "tolerance_m": 0.5,
+  "tune_fraction": 0.15,
+  "val_fraction": 0.2,
+  "val_scene": {
+    "bounds": [
+      597689.2,
+      5745458.9,
+      601411.4,
+      5753559.1
+    ],
+    "extent": "extents_masks/SN6_AOI_11_Rotterdam_Val-Extent.geojson",
+    "tiles_touching": 0,
+    "use": "scene-level optical eval on the PS-RGBNIR TrainVal mosaic (no SAR tiles)"
+  }
+}
