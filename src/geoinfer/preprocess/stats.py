@@ -13,7 +13,7 @@ SAR baseline arm are ``10 ** (p_dB / 10)`` without a second pass over the data.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
 
@@ -189,3 +189,24 @@ def sar_arm_stats(
     if domain == "linear":
         lo, hi = np.power(10.0, lo / 10.0), np.power(10.0, hi / 10.0)
     return {"p_lo": lo, "p_hi": hi, "mean": mean, "std": std}
+
+
+def strip_arm_stats(
+    hists: Mapping[str, BandHistogram],
+    percentiles: tuple[float, float],
+    domain: Literal["db", "linear"],
+    clip: bool,
+    min_valid_px: int,
+) -> dict[str, Stats | None]:
+    """Per-strip statistics for a strip-scoped SAR arm (decision D4).
+
+    SN6 SAR brightness differs by up to about 29 dB between acquisition strips, so a
+    strip-scoped arm normalises each strip with its own percentiles and moments.
+    Strips with fewer than ``min_valid_px`` valid pixels get ``None`` and fall back to
+    the global arm (see :func:`geoinfer.preprocess.normalize.select_arm_stats`).
+    """
+    out: dict[str, Stats | None] = {}
+    for strip, h in hists.items():
+        n = int(h.counts[0].sum())
+        out[strip] = sar_arm_stats(h, percentiles, domain, clip) if n >= min_valid_px else None
+    return out
