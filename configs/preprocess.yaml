@@ -1,0 +1,21 @@
+# Radiometric normalisation (comparison S2). Statistics come from the train split only.
+optical:
+  percentiles: [2.0, 98.0]          # global stretch per band, then z-score
+  hist: {min: 0, max: 65536, step: 1}   # exact integer bins for uint16
+
+sar:
+  # SN6 SAR-Intensity is stored in dB (10*log10 of 2x2-multilooked intensity);
+  # 0 = nodata, 1e-5 = clipped floor (valid). Lee runs on linear intensity.
+  percentiles: [1.0, 99.0]          # clip range in dB
+  hist: {min: 0.0, max: 100.0, step: 0.01}   # dB bins; out-of-range values go to end bins
+  enl: null                          # filled in from estimate_enl on train tiles
+  enl_estimate: {window: 32, quantile: 0.05, tile_stride: 10}
+  arms:                              # S2 SAR variants
+    linear: {lee: null, domain: linear, clip: false}   # baseline: raw intensity
+    db: {lee: null, domain: db, clip: true}
+    db_lee5: {lee: 5, domain: db, clip: true}
+    db_lee7: {lee: 7, domain: db, clip: true}
+
+stats:
+  tile_stride: 1                     # use every n-th train tile
+  out_dir: data/processed/stats      # DVC-tracked (data/processed/stats.dvc)

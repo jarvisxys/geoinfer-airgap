@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -54,6 +54,9 @@ splits:  ## geographic train/tune/val split files from the extracted D2 tiles
 
 subset:  ## ~200-tile working subset (COGs) in ~/geo-data/subset; needs splits
 	uv run python scripts/build_subset.py
+
+stats:  ## S2 train-split normalisation stats (needs data/splits/train.txt)
+	uv run python scripts/compute_stats.py
 
 disk:  ## free space on WSL root, C: and D: (C: fills fast)
 	@df -h / /mnt/c /mnt/d 2>/dev/null | awk 'NR==1 || /\/$$|\/mnt\/[cd]$$/'

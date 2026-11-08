@@ -1,0 +1,4 @@
+# DVC outputs; only the *.dvc pointer files go in git
+/*
+!/*.dvc
+!/.gitignore
