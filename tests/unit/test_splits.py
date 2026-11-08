@@ -11,6 +11,7 @@ from shapely.geometry import box
 
 from geoinfer.train.splits import (
     assign_splits,
+    footprint_x_range,
     select_subset,
     split_regions,
     tile_footprints,
@@ -25,20 +26,42 @@ def _tile(x: float, y: float) -> box:
     return box(x, y, x + TILE, y + TILE)
 
 
-def test_split_regions_cuts_eastern_strip() -> None:
-    train = box(0, 0, 1000, 500)
-    val = box(1000, 0, 1400, 500)
-    regions = split_regions(train, val, tune_fraction=0.15)
-    assert regions["train"].bounds == (0, 0, 850, 500)
-    assert regions["tune"].bounds == (850, 0, 1000, 500)
-    assert regions["val"].equals(val)
-    assert regions["train"].area + regions["tune"].area == pytest.approx(train.area)
+def test_split_regions_cuts_west_to_east_over_covered_range() -> None:
+    extent = box(-100, 0, 1500, 500)  # official Train extent, wider than the tiles
+    regions = split_regions(extent, (0.0, 1000.0), tune_fraction=0.15, val_fraction=0.20)
+    assert regions["train"].bounds == (-100, 0, 650, 500)
+    assert regions["tune"].bounds == (650, 0, 800, 500)
+    assert regions["val"].bounds == (800, 0, 1500, 500)
+    total = sum(r.area for r in regions.values())
+    assert total == pytest.approx(extent.area)
+    assert regions["train"].intersection(regions["val"]).area == 0
 
 
-@pytest.mark.parametrize("fraction", [0.0, 1.0, -0.1])
-def test_split_regions_rejects_bad_fraction(fraction: float) -> None:
-    with pytest.raises(ValueError, match="tune_fraction"):
-        split_regions(box(0, 0, 1, 1), box(1, 0, 2, 1), fraction)
+def test_split_regions_stays_inside_extent() -> None:
+    extent = box(0, 0, 1000, 500).union(box(0, 500, 300, 800))  # L-shaped extent
+    regions = split_regions(extent, (0.0, 1000.0), tune_fraction=0.1, val_fraction=0.1)
+    for reg in regions.values():
+        assert extent.covers(reg)
+
+
+@pytest.mark.parametrize(
+    ("tune", "val"), [(0.0, 0.2), (0.15, 0.0), (0.5, 0.5), (-0.1, 0.2), (0.15, 1.2)]
+)
+def test_split_regions_rejects_bad_fractions(tune: float, val: float) -> None:
+    with pytest.raises(ValueError, match="fraction"):
+        split_regions(box(0, 0, 1, 1), (0.0, 1.0), tune_fraction=tune, val_fraction=val)
+
+
+def test_split_regions_rejects_empty_range() -> None:
+    with pytest.raises(ValueError, match="x_range"):
+        split_regions(box(0, 0, 1, 1), (1.0, 1.0), tune_fraction=0.1, val_fraction=0.1)
+
+
+def test_footprint_x_range_spans_all_tiles() -> None:
+    fps = {"a": _tile(100, 0), "b": _tile(-50, 900), "c": _tile(2000, 10)}
+    assert footprint_x_range(fps) == (-50.0, 2000.0 + TILE)
+    with pytest.raises(ValueError, match="no footprints"):
+        footprint_x_range({})
 
 
 def test_assign_keeps_only_fully_inside_tiles() -> None:

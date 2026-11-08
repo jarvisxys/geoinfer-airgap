@@ -1,7 +1,8 @@
 """Build geographic train / tune / val splits from the extracted SN6 train tiles.
 
 Reads tile headers only (no pixels), writes data/splits/{train,tune,val}.txt and
-splits.json, and a split map figure.
+splits.json, and a split map figure. Splits are cut west to east over the x-range the
+tiles cover; the official Val extent (no tiles) is recorded for scene-level evaluation.
 
 Usage: uv run python scripts/build_splits.py [--config configs/data.yaml]
 """
@@ -19,7 +20,13 @@ import matplotlib.pyplot as plt
 import yaml
 from shapely.geometry.base import BaseGeometry
 
-from geoinfer.train.splits import assign_splits, split_regions, tile_footprints, write_splits
+from geoinfer.train.splits import (
+    assign_splits,
+    footprint_x_range,
+    split_regions,
+    tile_footprints,
+    write_splits,
+)
 
 TILE_CRS = "EPSG:32631"
 COLORS = {"train": "tab:blue", "tune": "tab:orange", "val": "tab:green"}
@@ -52,9 +59,14 @@ def main() -> None:
     print(f"SAR tiles: {len(fps)}  without optical twin: {len(missing_opt)}")
     fps = {k: v for k, v in fps.items() if k in opt_ids}
 
-    train_ext, val_ext = _extent(raw / sc["train_extent"]), _extent(raw / sc["val_extent"])
-    regions = split_regions(train_ext, val_ext, sc["tune_strip_fraction"])
+    train_ext = _extent(raw / sc["train_extent"])
+    scene_ext = _extent(raw / sc["val_scene_extent"])
+    x_range = footprint_x_range(fps)
+    print(f"tile coverage x: {x_range[0]:.1f} - {x_range[1]:.1f}")
+    regions = split_regions(train_ext, x_range, sc["tune_fraction"], sc["val_fraction"])
     assigned, dropped = assign_splits(fps, regions, sc["tolerance_m"])
+    n_scene = sum(fp.intersects(scene_ext) for fp in fps.values())
+    print(f"tiles touching the official Val extent: {n_scene}")
 
     test_path = raw / "extents_masks/SN6_AOI_11_Rotterdam_Test-Extent.geojson"
     if test_path.exists():
@@ -65,10 +77,18 @@ def main() -> None:
     meta = {
         "rule": sc["rule"],
         "tolerance_m": sc["tolerance_m"],
-        "tune_strip_fraction": sc["tune_strip_fraction"],
+        "tune_fraction": sc["tune_fraction"],
+        "val_fraction": sc["val_fraction"],
         "source": f"{cfg['modalities']['sar']} tile headers, tiles with an optical twin",
         "tiles_considered": len(fps),
+        "coverage_x_range": [round(v, 1) for v in x_range],
         "regions_bounds": {k: [round(v, 1) for v in r.bounds] for k, r in regions.items()},
+        "val_scene": {
+            "extent": sc["val_scene_extent"],
+            "bounds": [round(v, 1) for v in scene_ext.bounds],
+            "tiles_touching": n_scene,
+            "use": "scene-level optical eval on the PS-RGBNIR TrainVal mosaic (no SAR tiles)",
+        },
     }
     info = write_splits(assigned, dropped, Path(sc["out_dir"]), meta)
     for name, ids in assigned.items():
@@ -86,11 +106,15 @@ def main() -> None:
         )
     if dropped:
         gpd.GeoSeries([fps[t] for t in dropped]).boundary.plot(ax=ax, color="grey", linewidth=0.2)
+    gpd.GeoSeries([scene_ext]).boundary.plot(ax=ax, color="black", linewidth=1.2, linestyle="--")
     handles = [
         plt.Line2D([], [], color=c, lw=6, alpha=0.5, label=f"{n} ({len(assigned[n])})")
         for n, c in COLORS.items()
     ]
     handles.append(plt.Line2D([], [], color="grey", lw=1, label=f"dropped ({len(dropped)})"))
+    handles.append(
+        plt.Line2D([], [], color="black", ls="--", lw=1.2, label="official Val (scene, optical)")
+    )
     ax.legend(handles=handles, loc="upper left", frameon=False)
     ax.set_title("SN6 Rotterdam: geographic splits (tile footprints, EPSG:32631)")
     ax.set_xlabel("easting (m)")

@@ -4,6 +4,10 @@ Neighbouring SN6 tiles overlap, and tiles from different collection strips cover
 same ground, so a random split leaks buildings between splits. Here a tile joins a
 split only if its whole footprint lies inside that split's region; tiles crossing a
 region boundary, or lying inside more than one region, are dropped.
+
+The SN6 train tarball has no tiles in the official Val extent (it ends near x=596.7 km),
+so all three tile splits are cut from the covered part of the Train extent. The official
+Val extent is kept for scene-level optical evaluation on the PS-RGBNIR mosaic.
 """
 
 from __future__ import annotations
@@ -25,31 +29,61 @@ Footprints = dict[str, BaseGeometry]
 
 
 def split_regions(
-    train_extent: BaseGeometry, val_extent: BaseGeometry, tune_fraction: float
+    extent: BaseGeometry,
+    x_range: tuple[float, float],
+    tune_fraction: float,
+    val_fraction: float,
 ) -> dict[str, BaseGeometry]:
-    """Cut the eastern ``tune_fraction`` of the Train extent off as a tuning strip.
+    """Cut an extent west to east into train | tune | val by vertical lines.
+
+    The cuts are placed on ``x_range`` (the easting range the tiles actually cover),
+    not on the extent itself: the SN6 train tarball covers only the western part of
+    the official Train extent, so cutting the extent would leave tune and val empty.
 
     Parameters
     ----------
-    train_extent, val_extent
-        Official SN6 extents, in the tiles' projected CRS (metres).
-    tune_fraction
-        Share of the Train extent's x-range (east side) used for threshold tuning.
+    extent
+        Region the splits must stay inside (official Train extent), in metres.
+    x_range
+        ``(xmin, xmax)`` of the tile coverage, see :func:`footprint_x_range`.
+    tune_fraction, val_fraction
+        Shares of ``x_range`` for tune (middle strip) and val (eastern strip).
 
     Returns
     -------
     dict
-        ``{"train": core, "tune": strip, "val": val_extent}``.
+        ``{"train": west, "tune": middle, "val": east}``, each clipped to ``extent``.
     """
-    if not 0.0 < tune_fraction < 1.0:
-        raise ValueError(f"tune_fraction must be in (0, 1), got {tune_fraction}")
-    minx, miny, maxx, maxy = train_extent.bounds
-    cut = maxx - tune_fraction * (maxx - minx)
+    if not (0.0 < tune_fraction < 1.0 and 0.0 < val_fraction < 1.0):
+        raise ValueError(f"fractions must be in (0, 1), got {tune_fraction}, {val_fraction}")
+    if tune_fraction + val_fraction >= 1.0:
+        raise ValueError("tune_fraction + val_fraction must be < 1")
+    x0, x1 = x_range
+    if not x1 > x0:
+        raise ValueError(f"x_range must be increasing, got {x_range}")
+    minx, miny, maxx, maxy = extent.bounds
+    lo, hi = min(minx, x0), max(maxx, x1)
+    val_cut = x1 - val_fraction * (x1 - x0)
+    tune_cut = val_cut - tune_fraction * (x1 - x0)
     return {
-        "train": train_extent.intersection(box(minx, miny, cut, maxy)),
-        "tune": train_extent.intersection(box(cut, miny, maxx, maxy)),
-        "val": val_extent,
+        "train": extent.intersection(box(lo, miny, tune_cut, maxy)),
+        "tune": extent.intersection(box(tune_cut, miny, val_cut, maxy)),
+        "val": extent.intersection(box(val_cut, miny, hi, maxy)),
     }
+
+
+def footprint_x_range(footprints: Mapping[str, BaseGeometry]) -> tuple[float, float]:
+    """Return ``(xmin, xmax)`` over all tile footprints.
+
+    Raises
+    ------
+    ValueError
+        If ``footprints`` is empty.
+    """
+    if not footprints:
+        raise ValueError("no footprints")
+    b = np.array([fp.bounds for fp in footprints.values()])
+    return float(b[:, 0].min()), float(b[:, 2].max())
 
 
 def tile_footprints(paths: Iterable[Path], id_pattern: str, expected_crs: str | CRS) -> Footprints:

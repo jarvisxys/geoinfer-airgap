@@ -13,9 +13,13 @@ modalities:
 tile_id_regex: '_(\d{14}_\d{14}_tile_\d+)\.tif$'
 
 splits:                                 # split by geography, never randomly
+  # D2 tiles cover only x 590.1-596.7 km (western Train), so train | tune | val are
+  # cut west to east over the covered x-range, inside the Train extent.
   train_extent: extents_masks/SN6_AOI_11_Rotterdam_Train-Extent.geojson
-  val_extent: extents_masks/SN6_AOI_11_Rotterdam_Val-Extent.geojson
-  tune_strip_fraction: 0.15             # eastern strip of Train used for threshold tuning
+  tune_fraction: 0.15                   # middle strip: threshold tuning
+  val_fraction: 0.20                    # eastern strip: tile-level held-out metrics
+  # Official Val extent: no D2 tiles; used for scene-level optical eval on the D3 mosaic.
+  val_scene_extent: extents_masks/SN6_AOI_11_Rotterdam_Val-Extent.geojson
   rule: inside                          # tile footprint must lie fully inside one region
   tolerance_m: 0.5                      # one pixel of slack at region edges
   out_dir: data/splits
@@ -24,6 +28,7 @@ subset:                                 # laptop working subset (COG copies on W
   root: ~/geo-data/subset
   counts: {train: 120, tune: 30, val: 50}
   min_free_gb: 5                        # refuse to fill the C: drive below this
+  guard_paths: [/mnt/c]                 # WSL ext4 lives in a vhdx on C:; df on / is virtual
 
 labels:
   val_buildings: geojson_buildings/SN6_AOI_11_Rotterdam_Buildings_All-Val.geojson

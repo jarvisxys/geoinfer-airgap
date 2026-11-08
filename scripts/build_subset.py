@@ -56,11 +56,14 @@ def main() -> None:
 
     need = sum(sar[t].stat().st_size + opt[t].stat().st_size for t in tiles)  # upper bound
     root.mkdir(parents=True, exist_ok=True)
-    free = shutil.disk_usage(root).free
     min_free = cfg["subset"]["min_free_gb"] * GIB
-    print(f"{len(tiles)} tiles, at most {need / GIB:.1f} GiB; {free / GIB:.1f} GiB free on target")
-    if free - need < min_free:
-        raise SystemExit(f"refusing: would leave < {cfg['subset']['min_free_gb']} GiB free")
+    guards = [root, *(Path(g) for g in cfg["subset"].get("guard_paths", []) if Path(g).exists())]
+    print(f"{len(tiles)} tiles, at most {need / GIB:.1f} GiB")
+    for g in guards:
+        free = shutil.disk_usage(g).free
+        print(f"  {free / GIB:.1f} GiB free on {g}")
+        if free - need < min_free:
+            raise SystemExit(f"refusing: would leave < {min_free / GIB:.0f} GiB free on {g}")
 
     for i, t in enumerate(tiles, 1):
         for name, src in ((sar_name, sar[t]), (opt_name, opt[t])):
