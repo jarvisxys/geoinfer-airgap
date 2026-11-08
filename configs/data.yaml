@@ -10,6 +10,8 @@ modalities:
                                         # 10*log10 of 2x2-multilooked intensity;
                                         # 0 = nodata, 1e-5 = clipped floor (valid)
   optical: PS-RGBNIR                    # 4 bands, uint16
+scenes:                                 # large scenes for S1 (stitching) and S4
+  d3: /mnt/d/geo/interim/sn6/SN6_AOI_11_Rotterdam_PS-RGBNIR_TrainVal_cog.tif   # optical mosaic
 orientations: SummaryData/SAR_orientations.txt   # under interim_root: strip -> look direction 0/1
 tile_id_regex: '_(\d{14}_\d{14}_tile_\d+)\.tif$'
 
