@@ -1,0 +1,297 @@
+"""SpaceNet 6 tile dataset (numpy; the torch wrapper lives in ``train.torch_data``).
+
+- :func:`index_tiles` pairs SAR-Intensity, PS-RGBNIR and label GeoJSON files by tile ID.
+- :func:`ensure_mask` rasterises a tile's building footprints once into a uint8 GeoTIFF
+  cache on the SAR tile's grid (CRS and transform kept).
+- :class:`Normalizer` applies the S2 arms: optical ``minmax`` (per tile, baseline) or
+  ``global`` (train-split 2-98 % stretch then z-score); SAR any arm of
+  ``configs/preprocess.yaml``, including the per-strip arm of decision D4.
+- :class:`SN6Tiles` returns normalised ``optical`` (4), ``sar`` (4) or ``fused`` (8)
+  channel images with mask and valid pixels. Training samples are random crops with an
+  optional east-west flip (it keeps the SAR look direction, which is north or south);
+  evaluation samples are whole tiles padded to a multiple of 32. ``align_orientation``
+  flips look-direction-1 strips north-south so every strip looks the same way.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import geopandas as gpd
+import numpy as np
+import numpy.typing as npt
+from rasterio.features import rasterize
+from rasterio.windows import Window
+
+from geoinfer.io.config import IOConfig
+from geoinfer.io.raster import RasterInfo, RasterReader, RasterWriter, inspect_raster
+from geoinfer.preprocess.normalize import (
+    apply_sar_arm,
+    minmax_per_tile,
+    percentile_stretch,
+    select_arm_stats,
+    zscore,
+)
+from geoinfer.preprocess.sar import sar_chain
+
+BoolArray = npt.NDArray[np.bool_]
+FloatArray = npt.NDArray[np.float32]
+MODALITIES = ("optical", "sar", "fused")
+OPTICAL_ARMS = ("minmax", "global")
+LABEL_DIR = "geojson_buildings"
+
+
+@dataclass(frozen=True)
+class TileRecord:
+    """Files and metadata of one SN6 tile."""
+
+    tile_id: str
+    strip: str
+    orientation: int
+    sar: Path
+    optical: Path
+    labels: Path | None
+
+
+def _by_id(folder: Path, rx: re.Pattern[str], suffix: str) -> dict[str, Path]:
+    return {m.group(1): f for f in folder.glob(f"*{suffix}") if (m := rx.search(f.name))}
+
+
+def index_tiles(
+    root: Path,
+    ids: Sequence[str],
+    sar_dir: str,
+    optical_dir: str,
+    tile_regex: str,
+    orientations: Mapping[str, int],
+) -> list[TileRecord]:
+    """Pair the files of ``ids`` under ``root`` (one folder per modality).
+
+    Raises
+    ------
+    FileNotFoundError
+        If a tile has no SAR or no optical file.
+    """
+    rx = re.compile(tile_regex)
+    geo_rx = re.compile(tile_regex.replace(r"\.tif$", r"\.geojson$"))
+    sar = _by_id(root / sar_dir, rx, ".tif")
+    opt = _by_id(root / optical_dir, rx, ".tif")
+    lab = _by_id(root / LABEL_DIR, geo_rx, ".geojson")
+    out = []
+    for tid in ids:
+        for name, idx in ((sar_dir, sar), (optical_dir, opt)):
+            if tid not in idx:
+                raise FileNotFoundError(f"{tid}: no {name} file under {root}")
+        strip = tid.split("_tile_")[0]
+        out.append(
+            TileRecord(tid, strip, int(orientations[strip]), sar[tid], opt[tid], lab.get(tid))
+        )
+    return out
+
+
+def rasterize_labels(geojson: Path | None, info: RasterInfo) -> npt.NDArray[np.uint8]:
+    """Building footprints burnt as 1 on the grid of ``info`` (pixel centres inside)."""
+    shape = (info.height, info.width)
+    if geojson is None:
+        return np.zeros(shape, np.uint8)
+    gdf = gpd.read_file(geojson)
+    if len(gdf) == 0:
+        return np.zeros(shape, np.uint8)
+    if gdf.crs is not None and info.crs is not None and gdf.crs != info.crs:
+        gdf = gdf.to_crs(info.crs)
+    geoms = [(g, 1) for g in gdf.geometry if g is not None and not g.is_empty]
+    if not geoms:
+        return np.zeros(shape, np.uint8)
+    return np.asarray(
+        rasterize(geoms, out_shape=shape, transform=info.transform, fill=0, dtype="uint8")
+    )
+
+
+def ensure_mask(rec: TileRecord, masks_dir: Path, io_cfg: IOConfig) -> Path:
+    """Path of the cached mask of ``rec``, rasterised on first use."""
+    path = masks_dir / f"{rec.tile_id}.tif"
+    if path.exists():
+        return path
+    info = inspect_raster(rec.sar)
+    m = rasterize_labels(rec.labels, info)
+    with RasterWriter(path, info, io_cfg, count=1, dtype="uint8", cog=False) as wr:
+        wr.write(m[None], Window(0, 0, info.width, info.height))
+    return path
+
+
+class Normalizer:
+    """S2 normalisation arms with train-split (and per-strip) statistics."""
+
+    def __init__(
+        self,
+        stats: Mapping[str, Any],
+        strip_stats: Mapping[str, Any] | None,
+        optical_arm: str,
+        sar_arm: str,
+        sar_arms: Mapping[str, Mapping[str, Any]],
+    ) -> None:
+        if optical_arm not in OPTICAL_ARMS:
+            raise ValueError(f"optical arm must be one of {OPTICAL_ARMS}, got {optical_arm!r}")
+        if sar_arm not in sar_arms:
+            raise ValueError(f"unknown SAR arm {sar_arm!r}")
+        self.optical_arm, self.sar_arm = optical_arm, sar_arm
+        self.opt_stats = stats["optical"]
+        self.enl = float(stats["sar"]["enl"]["value"])
+        self.arm = dict(sar_arms[sar_arm])
+        if self.arm.get("scope") == "strip":
+            if strip_stats is None:
+                raise ValueError(f"arm {sar_arm!r} needs per-strip statistics")
+            self.global_sar = stats["sar"]["arms"][self.arm["fallback"]]
+            self.strip_sar: Mapping[str, Any] = strip_stats["arms"][sar_arm]["strips"]
+        else:
+            self.global_sar = stats["sar"]["arms"][sar_arm]
+            self.strip_sar = {}
+
+    @classmethod
+    def from_files(
+        cls,
+        stats_json: Path,
+        strip_stats_json: Path | None,
+        optical_arm: str,
+        sar_arm: str,
+        sar_arms: Mapping[str, Mapping[str, Any]],
+    ) -> Normalizer:
+        """Load ``stats.json`` (and ``strip_stats.json`` if it exists)."""
+        stats = json.loads(Path(stats_json).read_text())
+        strip = None
+        if strip_stats_json is not None and Path(strip_stats_json).exists():
+            strip = json.loads(Path(strip_stats_json).read_text())
+        return cls(stats, strip, optical_arm, sar_arm, sar_arms)
+
+    def optical(self, x: npt.NDArray[Any], valid: BoolArray) -> FloatArray:
+        """Normalise ``(4, h, w)`` uint16 optical."""
+        if self.optical_arm == "minmax":
+            return minmax_per_tile(x, valid)
+        s = self.opt_stats
+        stretched = percentile_stretch(x, valid, s["p_lo"], s["p_hi"])
+        return zscore(stretched, valid, s["mean"], s["std"])
+
+    def sar(self, db: npt.NDArray[Any], valid: BoolArray, strip: str | None) -> FloatArray:
+        """Normalise ``(4, h, w)`` SAR-Intensity dB with the configured arm."""
+        chain = sar_chain(db, valid, self.arm.get("lee"), self.enl)
+        stats, _ = select_arm_stats(strip, self.global_sar, self.strip_sar)
+        return apply_sar_arm(chain, valid, stats, self.arm["domain"], bool(self.arm["clip"]))
+
+
+def _read(path: Path) -> npt.NDArray[Any]:
+    with RasterReader(path) as r:
+        return r.read(Window(0, 0, r.info.width, r.info.height)).data
+
+
+class SN6Tiles:
+    """Indexable SN6 samples (see module docstring).
+
+    Parameters
+    ----------
+    records
+        Tiles from :func:`index_tiles`.
+    modality
+        ``optical``, ``sar`` or ``fused`` (optical channels first).
+    normalizer
+        S2 arms to apply.
+    masks_dir, io_cfg
+        Mask cache location and I/O config.
+    crop
+        Training crop side (multiple of 32); ``None`` for whole tiles.
+    train
+        Random crops and flips when True; whole padded tiles when False.
+    hflip
+        Random east-west flip in training.
+    align_orientation
+        Flip look-direction-1 strips north-south (image, mask and valid).
+    seed
+        Base seed; draws depend on ``(seed, epoch, index)`` only.
+    """
+
+    def __init__(
+        self,
+        records: Sequence[TileRecord],
+        modality: str,
+        normalizer: Normalizer,
+        masks_dir: Path,
+        io_cfg: IOConfig,
+        crop: int | None,
+        train: bool,
+        hflip: bool,
+        align_orientation: bool,
+        seed: int,
+    ) -> None:
+        if modality not in MODALITIES:
+            raise ValueError(f"modality must be one of {MODALITIES}, got {modality!r}")
+        if train and (crop is None or crop % 32):
+            raise ValueError(f"training needs a crop that is a multiple of 32, got {crop}")
+        self.records = list(records)
+        self.modality, self.norm = modality, normalizer
+        self.masks_dir, self.io_cfg = masks_dir, io_cfg
+        self.crop, self.train, self.hflip = crop, train, hflip
+        self.align_orientation, self.seed = align_orientation, seed
+        self.epoch = 0
+
+    def __len__(self) -> int:
+        return len(self.records)
+
+    def set_epoch(self, epoch: int) -> None:
+        """Change the random draws (crops, flips) for a new epoch."""
+        self.epoch = epoch
+
+    def __getitem__(self, i: int) -> dict[str, Any]:
+        rec = self.records[i]
+        parts, valid = [], None
+        if self.modality in ("optical", "fused"):
+            opt = _read(rec.optical)
+            ov = np.any(opt != 0, axis=0)
+            valid = ov
+        if self.modality in ("sar", "fused"):
+            sar = _read(rec.sar)
+            sv = np.all(sar != 0, axis=0)
+            valid = sv if valid is None else valid & sv
+        assert valid is not None
+        if self.modality in ("optical", "fused"):
+            parts.append(self.norm.optical(opt, valid))
+        if self.modality in ("sar", "fused"):
+            parts.append(self.norm.sar(sar, valid, rec.strip))
+        image = np.concatenate(parts, axis=0)
+        mask = _read(ensure_mask(rec, self.masks_dir, self.io_cfg))[0]
+
+        flipped = self.align_orientation and rec.orientation == 1
+        if flipped:
+            image, mask, valid = image[:, ::-1], mask[::-1], valid[::-1]
+        offset, hflipped = (0, 0), False
+        if self.train:
+            assert self.crop is not None
+            rng = np.random.default_rng([self.seed, self.epoch, i])
+            h, w = mask.shape
+            r0 = int(rng.integers(0, h - self.crop + 1))
+            c0 = int(rng.integers(0, w - self.crop + 1))
+            sl = (slice(r0, r0 + self.crop), slice(c0, c0 + self.crop))
+            image, mask, valid = image[:, sl[0], sl[1]], mask[sl], valid[sl]
+            offset = (r0, c0)
+            hflipped = self.hflip and bool(rng.random() < 0.5)
+            if hflipped:
+                image, mask, valid = image[:, :, ::-1], mask[:, ::-1], valid[:, ::-1]
+        else:
+            h, w = mask.shape
+            ph, pw = (-h) % 32, (-w) % 32
+            image = np.pad(image, ((0, 0), (0, ph), (0, pw)))
+            mask = np.pad(mask, ((0, ph), (0, pw)))
+            valid = np.pad(valid, ((0, ph), (0, pw)))
+        return {
+            "image": np.ascontiguousarray(image, dtype=np.float32),
+            "mask": np.ascontiguousarray(mask, dtype=np.uint8),
+            "valid": np.ascontiguousarray(valid, dtype=bool),
+            "tile_id": rec.tile_id,
+            "strip": rec.strip,
+            "offset": offset,
+            "hflipped": hflipped,
+            "flipped_ns": flipped,
+        }

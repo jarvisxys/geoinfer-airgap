@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb masks \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -73,6 +73,9 @@ s1:  ## S1 stitching study on D4 (synthetic edge-defect model until Phase 2)
 
 otsu:  ## classical SAR baseline on D4 (Otsu on dB, per scene / per strip, Lee arms)
 	uv run python scripts/otsu_baseline.py
+
+masks:  ## rasterise building masks for the working subset (cache in <subset>/masks)
+	uv run python scripts/build_masks.py
 
 d4:  ## build D4 (val-tile SAR + optical + labels mosaic) under scenes.d4
 	uv run python scripts/build_d4.py
