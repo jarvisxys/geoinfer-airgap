@@ -99,6 +99,9 @@ is compared against the global `db_lee7` arm in S2.
   compute from a new scene itself, so no label leakage.
 - Strips with fewer than 1,000,000 valid pixels fall back to the global `db_lee7` stats
   (`select_arm_stats`); `apply_sar_arm` applies either.
+- Result over all 3401 D2 tiles (47 min): 204 strips, none needs the fallback; the
+  per-strip mean (Lee 7, clipped) spans 30.1 / 33.6 / 33.8 / 33.4 dB across strips for
+  the four polarisations, wider than the 29 dB seen in D4.
 
 **Cost:** one more SAR-only training run in Phase 2. Per-tile normalisation was not
 added: a 450 m tile is often mostly water or fields, so its own statistics are less
