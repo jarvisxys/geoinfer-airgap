@@ -63,7 +63,7 @@ Data builds (run once, in this order; each writes outside git or into DVC):
 | Per-strip SAR statistics `strip_stats.json` (DVC, decision D4) | `make strip-stats` | ~47 min |
 | D4 scene (SAR, optical, labels, strips) | `make d4` | ~17 min |
 
-Figures and tables (`make figures` rebuilds all of them, ~15 min):
+Figures and tables (`make figures` rebuilds all of them, ~7 min; reruns change only timings):
 
 | Figure / table (`docs/figures/`) | Command | Runtime |
 |---|---|---|

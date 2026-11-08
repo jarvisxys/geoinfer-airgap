@@ -93,7 +93,7 @@ figures-nb:  ## run notebooks/02_dip_figures.ipynb headless (S2 figures); output
 	uv run --group notebook jupyter nbconvert --to notebook --execute --stdout \
 		--ExecutePreprocessor.timeout=1800 notebooks/02_dip_figures.ipynb > /dev/null
 
-figures: gate0 splits coreg d4-quicklook postprocess-check s1 otsu figures-nb  ## rebuild every report figure (~15 min; needs data, stats, D4)
+figures: gate0 splits coreg d4-quicklook postprocess-check s1 otsu figures-nb  ## rebuild every report figure (~7 min; needs data, stats, D4)
 
 train export serve bench bundle:  ## (later phases)
 	@echo "'$@' is not implemented yet; see the phase plan in docs/"
