@@ -55,6 +55,11 @@ dev = [
     "pytest-cov>=7.0",
     "types-pyyaml",
 ]
+notebook = [
+    "ipykernel>=7.4.0",
+    "nbconvert>=7.17.2",
+    "nbformat>=5.11.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.13,<0.14"]

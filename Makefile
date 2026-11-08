@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -83,7 +83,19 @@ tile-check:  ## tile -> identity -> stitch round trip on D3 (STRATEGY=hann)
 disk:  ## free space on WSL root, C: and D: (C: fills fast)
 	@df -h / /mnt/c /mnt/d 2>/dev/null | awk 'NR==1 || /\/$$|\/mnt\/[cd]$$/'
 
-train export serve bench bundle figures:  ## (later phases)
+d4-quicklook:  ## D4 overview + full-resolution crop with labels (needs make d4)
+	uv run python scripts/d4_quicklook.py
+
+postprocess-check:  ## module (d) clean-up on D4 with synthetic noise
+	uv run python scripts/postprocess_check.py
+
+figures-nb:  ## run notebooks/02_dip_figures.ipynb headless (S2 figures); outputs stay out of git
+	uv run --group notebook jupyter nbconvert --to notebook --execute --stdout \
+		--ExecutePreprocessor.timeout=1800 notebooks/02_dip_figures.ipynb > /dev/null
+
+figures: gate0 splits coreg d4-quicklook postprocess-check s1 otsu figures-nb  ## rebuild every report figure (~15 min; needs data, stats, D4)
+
+train export serve bench bundle:  ## (later phases)
 	@echo "'$@' is not implemented yet; see the phase plan in docs/"
 
 clean:  ## remove caches
