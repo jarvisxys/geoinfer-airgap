@@ -1,0 +1,15 @@
+# Evaluation settings (plan section 10, studies S1-S3).
+border_band_px: 32                # border-band IoU: pixels within this of a seam line
+strip_join_exclude_px: 4          # D4: seam score skips pixels this close to a strip join
+
+s1:                               # stitching study
+  scene: d4                       # key under scenes: in data.yaml
+  tile: 512
+  overlap: 64                     # for crop / hann / tukey; naive always uses 0
+  strategies: [naive, crop, hann, tukey]
+  synthetic:                      # stand-in "model" until Phase 2 (labels + CNN-like defects)
+    edge_amplitude: 0.8           # confidence loss at the tile edge (0 = none, 1 = p -> 0.5)
+    edge_length_px: 24            # e-folding distance of that loss from the edge
+    tile_bias_sd: 0.08            # per-tile calibration offset, normal sd
+    label_blur_px: 1.0            # soft building edges
+    seed: 42
