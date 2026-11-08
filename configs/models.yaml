@@ -1,0 +1,16 @@
+# Model architecture and the local weight registry (no downloads from src/).
+registry: models/registry          # DVC-tracked; filled once by `make weights`
+pretrained:
+  resnet34_imagenet:
+    file: resnet34_imagenet1k_v1.pth
+    url: https://download.pytorch.org/models/resnet34-b627a593.pth   # torchvision IMAGENET1K_V1
+    sha256: b627a593bcbe140c234610266fe4f8ae95ea42fc881d091c9b6052e6b1d0590f   # pinned by fetch_weights.py
+
+unet:
+  encoder: resnet34
+  decoder_channels: [256, 128, 64, 32, 16]
+  classes: 1                       # building
+  init:                            # stem rule (plan): channel i <- RGB weight (i mod 3) * 3 / C
+    optical: resnet34_imagenet
+    sar: resnet34_imagenet
+    fused: resnet34_imagenet

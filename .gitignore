@@ -18,7 +18,7 @@ htmlcov/
 /data/raw/
 /data/interim/
 # /data/processed/: see data/processed/.gitignore (only *.dvc pointers are tracked)
-/models/
+# /models/: see models/.gitignore (only *.dvc pointers are tracked)
 /outputs/
 *.tif
 *.tiff

@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb masks \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb masks weights \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -76,6 +76,9 @@ otsu:  ## classical SAR baseline on D4 (Otsu on dB, per scene / per strip, Lee a
 
 masks:  ## rasterise building masks for the working subset (cache in <subset>/masks)
 	uv run python scripts/build_masks.py
+
+weights:  ## download pretrained encoder weights once into models/registry (needs internet)
+	uv run python scripts/fetch_weights.py
 
 d4:  ## build D4 (val-tile SAR + optical + labels mosaic) under scenes.d4
 	uv run python scripts/build_d4.py

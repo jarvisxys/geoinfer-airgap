@@ -90,9 +90,10 @@ mypy_path = "src"
 module = ["rasterio.*", "geopandas.*", "shapely.*", "skimage.*", "cv2.*", "torch.*", "torchvision.*", "segmentation_models_pytorch.*", "pynvml.*", "matplotlib.*"]
 ignore_missing_imports = true
 
-# torch is installed locally but not in CI; treat it as untyped in both so mypy agrees.
+# torch and smp are installed locally but not in CI; treat them as untyped in both so
+# mypy agrees.
 [[tool.mypy.overrides]]
-module = ["torch", "torch.*"]
+module = ["torch", "torch.*", "segmentation_models_pytorch", "segmentation_models_pytorch.*"]
 follow_imports = "skip"
 follow_untyped_imports = false
 

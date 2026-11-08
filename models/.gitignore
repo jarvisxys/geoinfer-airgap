@@ -1,0 +1,4 @@
+# weights and checkpoints go through DVC; only the *.dvc pointers are in git
+/*
+!/*.dvc
+!/.gitignore
