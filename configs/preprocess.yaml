@@ -18,4 +18,4 @@ sar:
 
 stats:
   tile_stride: 1                     # use every n-th train tile
-  out_dir: /mnt/d/geo/processed/sn6/stats
+  out_dir: data/processed/stats      # DVC-tracked (data/processed/stats.dvc)

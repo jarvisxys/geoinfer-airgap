@@ -17,7 +17,7 @@ htmlcov/
 # Data and models never go in Git (use DVC; see docs/setup.md)
 /data/raw/
 /data/interim/
-/data/processed/
+# /data/processed/: see data/processed/.gitignore (only *.dvc pointers are tracked)
 /models/
 /outputs/
 *.tif
