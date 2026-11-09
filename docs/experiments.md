@@ -205,3 +205,46 @@ global = E2 `sar`). Same evaluation as E4. Runs: `models/s2/*_seed{1,2}` (DVC).
 - S2 conclusion for SAR: dB conversion is the large, certain gain (+0.07 IoU, +0.11
   object F1 over linear); per-strip normalisation adds a small object-level gain; speckle
   filtering before a CNN is not worth it here.
+
+## E8. Morphology ablation: object F1 before and after clean-up (2026-11-09)
+
+`score_predictions` now also scores the raw thresholded mask at object level
+(`object_raw` in `eval.json`); the S3 models were re-evaluated (val split, tuned
+thresholds). Clean-up = opening 3, closing 3, components < 20 m2 removed.
+
+| Model | Object F1 raw -> clean | FP raw -> clean | FN raw -> clean | Pixel IoU raw -> clean |
+|---|---|---|---|---|
+| optical | 0.513 -> 0.508 | 7968 -> 7913 | 16206 -> 16378 | 0.682 -> 0.682 |
+| SAR | **0.223 -> 0.244** | 10251 -> 10352 | 24028 -> 23480 | 0.479 -> 0.466 |
+| fused | 0.517 -> 0.519 | 8042 -> 7686 | 16056 -> 16104 | 0.688 -> 0.685 |
+| optical, cloud-trained | 0.509 -> 0.505 | 8491 -> 8324 | 16166 -> 16337 | 0.686 -> 0.685 |
+| fused, cloud-trained | 0.505 -> 0.507 | 7816 -> 7445 | 16537 -> 16588 | 0.680 -> 0.676 |
+
+**Reading:** the clean-up helps SAR at object level (+0.021 F1): closing joins the
+fragmented SAR detections of one building, so fewer buildings are missed (FN -548). For
+optical and fused it is neutral (within 0.005): their masks are already clean, opening
+removes a few false positives and closing merges a few neighbours. It always costs a
+little pixel IoU (up to 0.013 for SAR). Keep it for SAR and fused outputs; for optical
+it is optional.
+
+## E9. S1 on the official Val extent (D3-val) (2026-11-09)
+
+`scripts/build_d3val.py`: the D3 PS-RGBNIR TrainVal mosaic cut to the official Val
+extent (7444 x 16200 px, 121 Mpx, 99.3 % valid) with the official All-Val labels (8396
+buildings, 14.3 % of valid pixels); no D2 tile lies in this extent (D1), so this is the
+held-out scene-level test. Same harness and model as E3 (optical, threshold 0.55), on the
+server GPU.
+
+| Strategy | Scene IoU | Border-band IoU | Seam score | Object F1 | Tile + stitch |
+|---|---|---|---|---|---|
+| naive (O 0) | 0.702 | 0.700 | 3.23 | 0.539 | 28 s |
+| crop | 0.709 | 0.709 | 1.65 | 0.548 | 32 s |
+| Hann | 0.709 | 0.709 | 0.995 | 0.549 | 29 s |
+| Tukey | 0.709 | 0.709 | 0.993 | 0.549 | 29 s |
+
+**Reading:** the same picture as D4 on a scene three times larger with the official
+labels, and a slightly larger accuracy gain from overlap (+0.009 border-band IoU, +0.010
+object F1). Seams go from 3.23 (naive) to 1.65 (crop) to 0.99 (blending). The close-ups
+(`s1_d3val_optical.png`, `s1_d4_optical.png`) now sit at the seam crossing with the most
+labelled buildings; on D3-val two tiles disagree about a large structure, which naive
+pasting cuts with a hard edge and blending turns into a gradient.

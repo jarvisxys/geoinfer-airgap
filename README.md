@@ -64,7 +64,8 @@ reading in `docs/experiments.md`; checkpoints, ONNX models and run records in DV
 | S3 clouds | trained without clouds, optical and fused fall below SAR alone at 20 % cloud cover; cloud augmentation keeps them at 0.61-0.62 IoU at 40 %, and at 80 % only the cloud-trained fused model (0.527) beats SAR alone (0.479) | E6 |
 | S2 SAR | dB vs linear +0.07 IoU, +0.11 object F1; over 3 seeds the dB arms tie on pixel IoU, per-strip normalisation is best on object F1 (0.264 vs 0.248 for the same Lee 7 filter), Lee 5 worst; speckle filtering does not help the CNN | E4, E7 |
 | S2 optical | per-tile min-max = global stretch on tile IoU (0.681 vs 0.682), but leaves seams after stitching (seam score 2.60 vs 0.92) | E4, S2 figures |
-| S1 stitching | real optical model on D4: overlap adds +0.005 border-band IoU; seam score 2.79 (naive) -> 1.48 (crop) -> 0.98 (Hann / Tukey) | E3 |
+| S1 stitching | real optical model; D4: overlap +0.005 border-band IoU, seam score 2.79 (naive) -> 1.48 (crop) -> 0.98 (Hann / Tukey); official Val extent (D3-val, 121 Mpx): +0.009 border-band IoU, +0.010 object F1, seams 3.23 -> 0.99 | E3, E9 |
+| Morphology | clean-up raises SAR object F1 0.223 -> 0.244 (closing joins fragments); neutral for optical and fused; costs up to 0.013 pixel IoU | E8 |
 | Baseline | classical Otsu on SAR: best 0.168 pixel IoU (Lee 7, per-strip threshold) | `otsu_d4.json` |
 | Export | ONNX (dynamic batch, h, w) matches PyTorch to 2.4e-5 in logits | E5 |
 

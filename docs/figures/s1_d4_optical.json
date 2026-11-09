@@ -24,7 +24,7 @@
       "border_band_iou": 0.7035,
       "seam_score": 2.793,
       "object_f1": 0.5018,
-      "tile_and_stitch_s": 15.4
+      "tile_and_stitch_s": 17.4
     },
     "crop": {
       "overlap": 64,
@@ -34,7 +34,7 @@
       "border_band_iou": 0.709,
       "seam_score": 1.478,
       "object_f1": 0.5087,
-      "tile_and_stitch_s": 18.8
+      "tile_and_stitch_s": 14.5
     },
     "hann": {
       "overlap": 64,
@@ -44,7 +44,7 @@
       "border_band_iou": 0.7089,
       "seam_score": 0.985,
       "object_f1": 0.51,
-      "tile_and_stitch_s": 15.6
+      "tile_and_stitch_s": 14.2
     },
     "tukey": {
       "overlap": 64,
@@ -54,7 +54,7 @@
       "border_band_iou": 0.7089,
       "seam_score": 0.982,
       "object_f1": 0.509,
-      "tile_and_stitch_s": 16.3
+      "tile_and_stitch_s": 15.6
     }
   }
 }
