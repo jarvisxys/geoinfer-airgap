@@ -271,6 +271,7 @@ class SN6Tiles:
         if flipped:
             image, mask, valid = image[:, ::-1], mask[::-1], valid[::-1]
         offset, hflipped = (0, 0), False
+        size = tuple(mask.shape)
         if self.train:
             assert self.crop is not None
             rng = np.random.default_rng([self.seed, self.epoch if self.vary_by_epoch else 0, i])
@@ -280,11 +281,13 @@ class SN6Tiles:
             sl = (slice(r0, r0 + self.crop), slice(c0, c0 + self.crop))
             image, mask, valid = image[:, sl[0], sl[1]], mask[sl], valid[sl]
             offset = (r0, c0)
+            size = (self.crop, self.crop)
             hflipped = self.hflip and bool(rng.random() < 0.5)
             if hflipped:
                 image, mask, valid = image[:, :, ::-1], mask[:, ::-1], valid[:, ::-1]
         else:
             h, w = mask.shape
+            size = (h, w)
             ph, pw = (-h) % 32, (-w) % 32
             image = np.pad(image, ((0, 0), (0, ph), (0, pw)))
             mask = np.pad(mask, ((0, ph), (0, pw)))
@@ -296,6 +299,7 @@ class SN6Tiles:
             "tile_id": rec.tile_id,
             "strip": rec.strip,
             "offset": offset,
+            "size": size,
             "hflipped": hflipped,
             "flipped_ns": flipped,
         }
