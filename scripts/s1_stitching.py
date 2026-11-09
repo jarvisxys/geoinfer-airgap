@@ -150,13 +150,16 @@ def main() -> None:
     p.add_argument("--model", choices=["synthetic", "run"], default="synthetic")
     p.add_argument("--run-dir", type=Path, default=None, help="trained run (--model run)")
     p.add_argument("--device", default="cuda")
+    p.add_argument("--scene", default=None, help="key under scenes: in data.yaml (d4, d3val)")
+    p.add_argument("--scene-dir", type=Path, default=None, help="override the scene folder")
     p.add_argument("--out", type=Path, default=None)
     a = p.parse_args()
     ecfg: dict[str, Any] = yaml.safe_load(Path("configs/eval.yaml").read_text())
     dcfg: dict[str, Any] = yaml.safe_load(Path("configs/data.yaml").read_text())
     s1 = ecfg["s1"]
-    scene = Path(dcfg["scenes"][s1["scene"]])
-    labels_path, strips_path = scene / "d4_labels.tif", scene / "d4_strips.tif"
+    key = a.scene or s1["scene"]
+    scene = a.scene_dir or Path(dcfg["scenes"][key])
+    labels_path, strips_path = scene / f"{key}_labels.tif", scene / f"{key}_strips.tif"
     pcfg, tcfg = load_postprocess_config(), load_tiling_config()
     tile, ov = int(s1["tile"]), int(s1["overlap"])
 
@@ -172,19 +175,20 @@ def main() -> None:
     rows, cols = np.union1d(r0_, r1_), np.union1d(c0_, c1_)
     band = border_band((h, w), rows, cols, ecfg["border_band_px"]) & valid
     excl = label_edges(strips, ecfg["strip_join_exclude_px"])
-    gt_poly = filter_by_valid(gpd.read_file(scene / "d4_buildings.geojson"), valid, info.transform)
+    gt_all = gpd.read_file(scene / f"{key}_buildings.geojson")
+    gt_poly = filter_by_valid(gt_all, valid, info.transform)
     threshold = pcfg.threshold
     if a.model == "run":
         if a.run_dir is None:
             raise SystemExit("--model run needs --run-dir")
-        run_model = RunModel(a.run_dir, scene / "d4_optical.tif", tcfg.pad_mode, a.device)
+        run_model = RunModel(a.run_dir, scene / f"{key}_optical.tif", tcfg.pad_mode, a.device)
         threshold = run_model.threshold
         model_name = run_model.name
         print(f"run {model_name}: threshold {threshold}, amp {run_model.amp_reason}")
     else:
         synth = SyntheticEdgeModel(s1["synthetic"], tile)
         model_name = "synthetic"
-    out = a.out or Path(f"docs/figures/s1_d4_{model_name}")
+    out = a.out or Path(f"docs/figures/s1_{key}_{model_name}")
 
     results: dict[str, Any] = {}
     probs: dict[str, np.ndarray] = {}
@@ -244,7 +248,7 @@ def main() -> None:
         print(strategy, results[strategy])
 
     meta = {
-        "scene": f"{s1['scene']} {w} x {h} px",
+        "scene": f"{key} {w} x {h} px",
         "model": model_name,
         "tile": tile,
         "overlap": ov,
@@ -264,9 +268,14 @@ def main() -> None:
     out_json.write_text(json.dumps({"meta": meta, "results": results}, indent=2) + "\n")
     print(f"wrote {out_json}")
 
-    # seam close-ups: a window around a tile corner of the O = 0 grid
-    yc = int(rows[np.argmin(np.abs(rows - h // 2))])
-    xc = int(cols[np.argmin(np.abs(cols - w // 2))])
+    # seam close-ups: the crossing of seam lines with the most labelled building pixels
+    # within 128 px (so the panel shows roofs, not water)
+    cands = [
+        (int(r), int(c)) for r in r0_ for c in c0_ if 128 <= r < h - 128 and 128 <= c < w - 128
+    ]
+    yc, xc = max(
+        cands, key=lambda rc: int(gt[rc[0] - 128 : rc[0] + 128, rc[1] - 128 : rc[1] + 128].sum())
+    )
     win = (slice(yc - 128, yc + 128), slice(xc - 128, xc + 128))
     fig, ax = plt.subplots(1, len(probs), figsize=(4 * len(probs), 4.4), dpi=100)
     for x, (name, pr) in zip(np.atleast_1d(ax), probs.items(), strict=True):
@@ -277,7 +286,7 @@ def main() -> None:
         x.set_title(f"{name}: seam {r['seam_score']}, band IoU {r['border_band_iou']}", fontsize=9)
         x.set_xticks([])
         x.set_yticks([])
-    fig.suptitle(f"S1 on D4, model {model_name}: probability at a tile corner")
+    fig.suptitle(f"S1 on {key.upper()}, model {model_name}: probability at a tile corner")
     fig.tight_layout()
     fig.savefig(out.with_suffix(".png"))
     print(f"figure: {out.with_suffix('.png')}")
