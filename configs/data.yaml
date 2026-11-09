@@ -13,6 +13,7 @@ modalities:
 scenes:                                 # large scenes for S1 (stitching) and S4
   d3: /mnt/d/geo/interim/sn6/SN6_AOI_11_Rotterdam_PS-RGBNIR_TrainVal_cog.tif   # optical mosaic
   d4: /mnt/d/geo/processed/sn6/d4      # val-tile SAR + optical + labels mosaic (make d4)
+  d3val: /mnt/d/geo/processed/sn6/d3val   # D3 cut to the official Val extent + All-Val labels
 orientations: SummaryData/SAR_orientations.txt   # under interim_root: strip -> look direction 0/1
 tile_id_regex: '_(\d{14}_\d{14}_tile_\d+)\.tif$'
 

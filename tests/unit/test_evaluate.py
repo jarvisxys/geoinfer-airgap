@@ -102,6 +102,7 @@ def test_perfect_predictions_score_one(scene: dict, io_cfg: IOConfig) -> None:
     assert out["pixel_clean"]["iou"] == 1.0
     assert out["object"]["f1"] == 1.0
     assert out["object"]["tp"] == 2  # one 48 m2 building per tile
+    assert out["object_raw"]["f1"] == 1.0  # before the clean-up as well
     assert set(out["by_orientation"]) == {"0", "1"}
     assert out["tiles"] == 2
 
@@ -146,3 +147,18 @@ def test_load_run_rebuilds_model_and_dataset(scene: dict, tmp_path) -> None:
     assert ds[0]["image"].shape == (8, 64, 64)
     cloudy = lr.dataset(lst, optical_corrupt=TileClouds(0.5, 2.2, 0.15, [900.0] * 4, 1))[0]
     assert not np.array_equal(cloudy["image"][:4], ds[0]["image"][:4])
+
+
+def test_object_scores_before_and_after_cleanup(scene: dict, io_cfg: IOConfig) -> None:
+    preds = []
+    for p in predict_tiles(FirstChannel(), _eval_ds(scene, io_cfg, False), "cpu", amp=False):
+        prob = p.mask.astype(np.float32)
+        prob[40:44, 30:32] = 1.0  # a 2 m2 speck: kept raw, removed by opening
+        prob[50:58, 20:32] = 1.0  # a 24 m2 false building: survives the clean-up
+        preds.append(TilePrediction(p.tile_id, p.strip, p.orientation, prob, p.mask, p.valid))
+    recs = {r.tile_id: r for r in _records(scene)}
+    out = score_predictions(preds, recs, threshold=0.5, pcfg=PCFG)
+    # specks under 20 m2 are ignored by the matcher, so both see the 24 m2 false building
+    assert out["object_raw"]["fp"] == 2
+    assert out["object"]["fp"] == 2
+    assert out["pixel_raw"]["iou"] < out["pixel_clean"]["iou"]  # the speck costs pixels

@@ -5,9 +5,10 @@
    prediction is in map orientation.
 2. :func:`threshold_sweep` / :func:`best_threshold` pick the probability threshold with
    the highest pixel IoU on the tune split.
-3. :func:`score_predictions` reports pixel IoU / F1 before and after the module (d)
-   clean-up, and object F1 (SpaceNet matching, IoU >= 0.5, < 20 m2 ignored) against
-   each tile's label polygons, overall and per look direction.
+3. :func:`score_predictions` reports pixel IoU / F1 and object F1 before and after the
+   module (d) clean-up (the morphology ablation); object F1 uses SpaceNet matching
+   (IoU >= 0.5, < 20 m2 ignored) against each tile's label polygons; overall and per
+   look direction.
 """
 
 from __future__ import annotations
@@ -136,6 +137,8 @@ def score_predictions(
         else:
             gt = gpd.GeoDataFrame(geometry=[], crs=info.crs)
         obj = object_scores(pred_gdf, gt, pcfg.min_area_m2)
+        raw_gdf = to_geodataframe(polygonize(raw, info.transform, pcfg.connectivity), info.crs)
+        obj_raw = object_scores(raw_gdf, gt, pcfg.min_area_m2)
         for key in ("all", str(p.orientation)):
             g = groups.setdefault(
                 key,
@@ -145,6 +148,9 @@ def score_predictions(
                     "tp": 0,
                     "fp": 0,
                     "fn": 0,
+                    "tp_raw": 0,
+                    "fp_raw": 0,
+                    "fn_raw": 0,
                     "tiles": 0,
                 },
             )
@@ -153,21 +159,22 @@ def score_predictions(
             g["tp"] += obj.tp
             g["fp"] += obj.fp
             g["fn"] += obj.fn
+            g["tp_raw"] += obj_raw.tp
+            g["fp_raw"] += obj_raw.fp
+            g["fn_raw"] += obj_raw.fn
             g["tiles"] += 1
 
-    def summary(g: Mapping[str, Any]) -> dict[str, Any]:
-        tp, fp, fn = g["tp"], g["fp"], g["fn"]
+    def objects(tp: int, fp: int, fn: int) -> dict[str, Any]:
         f1 = 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) else math.nan
+        return {"tp": tp, "fp": fp, "fn": fn, "f1": None if math.isnan(f1) else round(f1, 4)}
+
+    def summary(g: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "tiles": g["tiles"],
             "pixel_raw": _round(pixel_scores(g["raw"])),
             "pixel_clean": _round(pixel_scores(g["clean"])),
-            "object": {
-                "tp": tp,
-                "fp": fp,
-                "fn": fn,
-                "f1": None if math.isnan(f1) else round(f1, 4),
-            },
+            "object": objects(g["tp"], g["fp"], g["fn"]),
+            "object_raw": objects(g["tp_raw"], g["fp_raw"], g["fn_raw"]),
         }
 
     overall = summary(groups["all"]) if "all" in groups else {}
