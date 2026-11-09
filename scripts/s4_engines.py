@@ -218,7 +218,7 @@ def _end_to_end(
                 *m.info.transform * (m.info.width, 0),
                 ctx.info.transform,
             )
-            mask = m.read(Window(0, 0, m.info.width, m.info.height), [1]).data[0]
+        mask = _rows(res.mask_path)  # row blocks: the reader refuses whole-raster windows
         r0, c0 = round(win.row_off), round(win.col_off)
         h, w = mask.shape
         g, v = gt[r0 : r0 + h, c0 : c0 + w], valid[r0 : r0 + h, c0 : c0 + w]
