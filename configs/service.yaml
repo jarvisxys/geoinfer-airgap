@@ -10,3 +10,12 @@ default_models:                     # models.id served per sensor mode (Phase 3 
   optical: unet_r34_optical_clouds_v1
   sar: unet_r34_sar_lee7_v1
   fused: unet_r34_fused_clouds_v1
+stats_file: stats/stats.json        # in models_dir: train-split normalisation statistics (S2)
+preprocess_config: configs/preprocess.yaml   # SAR arm definitions (Lee window, domain, clip)
+worker:
+  poll_interval_s: 1.0              # sleep between empty queue polls
+  heartbeat_interval_s: 3.0         # well under readiness_max_heartbeat_age_s
+  batch_size: 8                     # tiles per ONNX Runtime call
+  providers: [CUDAExecutionProvider, CPUExecutionProvider]   # first available wins
+  max_aoi_mpx: 150                  # larger AOIs fail fast (the probability map is in RAM)
+  scratch_dir: /data/scratch        # stitcher memmaps for AOIs above tiling memmap_min_px

@@ -17,7 +17,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from geoinfer.service.api.app import create_app
-from geoinfer.service.api.settings import Settings
+from geoinfer.service.api.settings import Settings, WorkerSettings
 from geoinfer.service.db import queue
 from geoinfer.service.db.migrate import downgrade, upgrade
 from geoinfer.service.db.schema import Job, Model
@@ -69,6 +69,9 @@ def env(tmp_path: Path, make_tiff: MakeTiff) -> Iterator[dict]:
         readiness_max_heartbeat_age_s=10,
         tasks=("segment_buildings",),
         default_models={"optical": "m_opt", "sar": "m_sar", "fused": "m_fus"},
+        stats_file=Path("stats/stats.json"),
+        preprocess_config=Path("configs/preprocess.yaml"),
+        worker=WorkerSettings("w", 1.0, 3.0, 8, ("CPUExecutionProvider",), 150.0, tmp_path),
     )
     engine = create_engine(URL)
     with Session(engine) as s:
