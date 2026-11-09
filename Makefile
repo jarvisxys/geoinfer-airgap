@@ -110,7 +110,10 @@ train:  ## train one model; CFG is the config, SET the overrides (see train.py -
 overfit:  ## laptop sanity check: overfit 8 fixed crops (configs/train_overfit.yaml)
 	uv run python -m geoinfer.train.train --config configs/train_overfit.yaml
 
-serve export bench bundle:  ## (later phases)
+export:  ## ONNX export + parity check of the S3 runs (models/s3, needs dvc pull)
+	uv run python -W ignore::DeprecationWarning scripts/export_run.py models/s3/optical models/s3/sar models/s3/fused
+
+serve bench bundle:  ## (later phases)
 	@echo "'$@' is not implemented yet; see the phase plan in docs/"
 
 clean:  ## remove caches
