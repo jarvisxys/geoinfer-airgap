@@ -176,3 +176,32 @@ object F1 (threshold 0.50), fused 0.680 / 0.507 (0.40).
 - With cloud training, optical and fused stay within 0.01 up to 60 % cover; at 80 % the
   fused model leads (0.527 vs 0.502) and is the only model above SAR alone. SAR's value
   in fusion is as a backstop under heavy cloud, not on clear or lightly clouded images.
+
+## E7. S2 SAR arms over three seeds (2026-11-09)
+
+**Setup:** seeds 1 and 2 of the four SAR dB arms (`scripts/server/remote_s2_seeds.sh`,
+commit f57cf22, 8 runs in parallel, 10 loader workers each), seed 0 = the E4 runs (Lee 7
+global = E2 `sar`). Same evaluation as E4. Runs: `models/s2/*_seed{1,2}` (DVC).
+
+| SAR arm | Val pixel IoU (mean +- sd) | Seeds | Pixel F1 | Object F1 (mean +- sd) |
+|---|---|---|---|---|
+| dB | 0.478 +- 0.009 | 0.470 / 0.488 / 0.477 | 0.647 | 0.256 +- 0.002 |
+| dB + Lee 5 | 0.469 +- 0.007 | 0.462 / 0.475 / 0.471 | 0.639 | 0.232 +- 0.004 |
+| dB + Lee 7 | 0.474 +- 0.004 | 0.479 / 0.471 / 0.472 | 0.643 | 0.248 +- 0.007 |
+| dB + Lee 7 per strip | **0.482 +- 0.009** | 0.472 / 0.483 / 0.490 | **0.650** | **0.264 +- 0.005** |
+
+(raw linear intensity, one seed: 0.403 pixel IoU, 0.148 object F1)
+
+**Reading:**
+- Pixel IoU does not separate the dB arms: the spread across arms (0.013) is about one to
+  two seed standard deviations.
+- Object F1 does: Lee 5 is clearly worst (0.024 below plain dB, more than 4 sd), and the
+  per-strip arm is the best (+0.016 over the same Lee 7 filter with global statistics,
+  about 2.5 sd).
+- The Lee filter does not help the CNN: plain dB matches or beats Lee 5 and Lee 7; the
+  network learns its own speckle smoothing, while the Lee filter blurs building edges
+  (edge-preservation index 0.32-0.36, `s2_sar_patch.png`) and that costs whole buildings.
+  What helps is per-strip normalisation (decision D4).
+- S2 conclusion for SAR: dB conversion is the large, certain gain (+0.07 IoU, +0.11
+  object F1 over linear); per-strip normalisation adds a small object-level gain; speckle
+  filtering before a CNN is not worth it here.
