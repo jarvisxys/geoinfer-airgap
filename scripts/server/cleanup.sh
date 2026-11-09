@@ -6,6 +6,7 @@
 # Usage: cleanup.sh [--remove-key]
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
+: "${REMOTE:?set REMOTE=user@host in scripts/server/remote.local}"
 ssh "$REMOTE" "for s in \$(screen -ls | grep -o '[0-9]*\.geoinfer_[a-z]*'); do screen -S \$s -X quit; done; \
 pkill -u \$(whoami) -f 'spacenet-dataset' || true; rm -rf $BASE; \
 ls -d $BASE 2>/dev/null || echo 'BASE removed'"

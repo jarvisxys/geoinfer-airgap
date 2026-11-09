@@ -4,7 +4,7 @@
 # scripts/server/remote.local (git-ignored) or export REMOTE before running.
 _here="$(dirname "${BASH_SOURCE[0]}")"
 [ -f "$_here/remote.local" ] && source "$_here/remote.local"
-REMOTE="${REMOTE:?set REMOTE=user@host in scripts/server/remote.local}"
+REMOTE="${REMOTE:-}"                        # needed only on the laptop side
 BASE="${BASE:-/scratch/user6/geoinfer}"     # home is 87 % full; /scratch/user6 is ours (700)
 REPO="$BASE/repo"
 RAW="$BASE/raw"                             # downloaded tarball

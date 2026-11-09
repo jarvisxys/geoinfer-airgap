@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/server/env.sh
+: "${REMOTE:?set REMOTE=user@host in scripts/server/remote.local}"
 ssh "$REMOTE" "mkdir -p $REPO $RAW $DATA $BASE/bin $BASE/cache $BASE/tmp"
 git archive --format=tar HEAD | ssh "$REMOTE" "tar -x -C $REPO"
 rsync -a --info=stats1 data/processed/stats "$REMOTE:$REPO/data/processed/"
