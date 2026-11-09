@@ -172,3 +172,41 @@ def _norm(s: dict, optical: str = "global", sar: str = "db") -> Any:
     return Normalizer.from_files(
         s["stats"] / "stats.json", s["stats"] / "strip_stats.json", optical, sar, s["arms"]
     )
+
+
+# --- a tiny ONNX "U-Net" for the service worker tests ---------------------------------
+
+
+@pytest.fixture
+def tiny_onnx(tmp_path: Path) -> Callable[..., Path]:
+    """Factory for an ONNX model ``logits = gain * image[:, 0] + bias`` (1x1 conv).
+
+    Same interface as the exported U-Nets: input ``image`` (batch, C, h, w), output
+    ``logits`` (batch, 1, h, w), dynamic batch and size, opset 18.
+    """
+    onnx = pytest.importorskip("onnx")
+    from onnx import TensorProto, helper, numpy_helper
+
+    def _make(
+        channels: int = 4, gain: float = 4.0, bias: float = 0.0, name: str = "tiny.onnx"
+    ) -> Path:
+        w = np.zeros((1, channels, 1, 1), np.float32)
+        w[0, 0] = gain
+        graph = helper.make_graph(
+            [helper.make_node("Conv", ["image", "w", "b"], ["logits"])],
+            "tiny",
+            [helper.make_tensor_value_info("image", TensorProto.FLOAT, ["n", channels, "h", "w"])],
+            [helper.make_tensor_value_info("logits", TensorProto.FLOAT, ["n", 1, "h", "w"])],
+            [
+                numpy_helper.from_array(w, "w"),
+                numpy_helper.from_array(np.array([bias], np.float32), "b"),
+            ],
+        )
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 18)])
+        model.ir_version = 10
+        onnx.checker.check_model(model)
+        path = tmp_path / name
+        onnx.save(model, path)
+        return path
+
+    return _make
