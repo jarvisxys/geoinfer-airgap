@@ -16,7 +16,7 @@ FastAPI / PostGIS / Docker service is the delivery vehicle.
 | 0 | Setup: env, repo, CI, data download | CI green; GPU visible from PyTorch and Docker; sample tiles render | done |
 | 1 | DIP core: io, normalisation, SAR despeckle, tiling, stitching, morphology, metrics | `v0.1-dip` | done |
 | 2 | Models: optical / SAR / fused U-Net, S1-S3 studies | `v0.2-models` | done |
-| 3 | Offline service: ONNX, FastAPI, worker, Docker, offline bundle | `v0.3-service` | |
+| 3 | Offline service: ONNX, FastAPI, worker, Docker, offline bundle | `v0.3-service` | done (Gate 3 passed) |
 | 4 | Benchmarks: S4 engines, E1-E6 serving experiments | `v0.4-bench` | |
 | 5 | Report + demo | `v1.0-submission` | |
 
@@ -68,6 +68,38 @@ reading in `docs/experiments.md`; checkpoints, ONNX models and run records in DV
 | Morphology | clean-up raises SAR object F1 0.223 -> 0.244 (closing joins fragments); neutral for optical and fused; costs up to 0.013 pixel IoU | E8 |
 | Baseline | classical Otsu on SAR: best 0.168 pixel IoU (Lee 7, per-strip threshold) | `otsu_d4.json` |
 | Export | ONNX (dynamic batch, h, w) matches PyTorch to 2.4e-5 in logits | E5 |
+
+## Offline service (Phase 3)
+
+Three containers on one internal network (plan section 3): `api` (FastAPI, CPU),
+`worker` (tiling, ONNX Runtime CUDA, Hann stitching, clean-up, vectorising; one per GPU)
+and `db` (PostGIS: scenes, models, jobs, building polygons, and the job queue via
+`FOR UPDATE SKIP LOCKED`). The service ships the cloud-trained optical and fused models and
+the SAR Lee 7 model; SAR and fused jobs need the scene's look direction (D5).
+
+```bash
+make images service-models demo-scene   # build images, assemble /models, cut the demo scene
+make airgap-test                        # --network none + internal-only stack, 3 jobs, scores
+make bundle VERSION=0.3.0               # images + models + wheels + manifest -> /mnt/d/geo/bundles
+# on the target machine (no network needed):
+./install_offline.sh geoinfer-0.3.0.tar ~/geoinfer --test
+cd ~/geoinfer && docker compose up -d --wait          # API on 127.0.0.1:8000/docs
+```
+
+Gate 3 (clean install from the 4.7 GB bundle, stack images and volumes removed first,
+installer run with no repo or uv on PATH): 83 files verified, 3 image ids matched, stack
+started air-gapped (TCP and DNS egress blocked), one job per sensor mode on the D4 demo
+band (4096 x 2621 px, 60 tiles) returned polygons into PostGIS (EPSG:4326) and GeoJSON:
+
+| Job (GTX 1650) | Model | Pixel IoU | Buildings | Time |
+|---|---|---|---|---|
+| optical | `unet_r34_optical_clouds_v1` | 0.734 | 597 | 32 s |
+| SAR (look direction 1, flipped) | `unet_r34_sar_lee7_v1` | 0.536 | 426 | 14 s |
+| fused (flipped) | `unet_r34_fused_clouds_v1` | 0.712 | 562 | 71 s |
+
+Through the service, the optical model scores pixel IoU 0.6997 on all of D4, against 0.7009 in S1 with
+PyTorch (before clean-up), so the service preprocessing matches training. Throughput, p95
+and GPU use are Phase 4 (S4, E1-E6).
 
 ## Reproduce
 

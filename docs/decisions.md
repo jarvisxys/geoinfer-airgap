@@ -133,3 +133,22 @@ encoder (`model.pretrained: resnet34_imagenet`), with the stem adapted by the pl
 rule (channel i <- RGB weight i mod 3, x 3/C). A randomly initialised SAR model would
 handicap SAR-only in S3 for a reason unrelated to the sensor, so all three start the
 same way.
+
+## D7. Service images: CUDA from wheels, global SAR statistics (2026-11-09)
+
+**Plan:** worker image on an `nvidia/cuda` 13.x runtime base.
+
+**Decision:** both service images are `python:3.12-slim` with a `uv sync --frozen`
+environment. The worker gets CUDA 13 / cuDNN 9 from the `nvidia-*` wheels of
+`onnxruntime-gpu[cuda,cudnn]` and loads them with `onnxruntime.preload_dlls()`; without
+the preload the CUDA provider silently falls back to the CPU (found on the laptop: 230 ms
+vs 38 ms per 512 px tile). A CUDA base image would carry a second copy of the same
+libraries. The image is 5.9 GB; the GPU driver comes from the host (container toolkit).
+
+**Normalisation in the service:** global train-split statistics for every model (Phase 3
+decision 2), also for SAR: a new scene has no per-strip statistics, and the shipped SAR
+model is the global `db_lee7` arm. The `db_lee7_strip` arm (D4) stays a research result.
+
+**Look direction:** one value per scene (`scenes.orientation`, required for SAR and fused).
+The demo scene is a D4 band where look direction 1 owns 97% of the SAR pixels; the other
+3% are set to nodata so the scene is consistent.
