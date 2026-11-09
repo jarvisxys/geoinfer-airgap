@@ -26,3 +26,11 @@ training loss (0.030 vs 0.031). 15.6 min on the GTX 1650 in fp32, peak GPU memor
 - YAML 1.1 read the config key `on:` as the boolean `true`, so validation silently ran
   on whole tiles (IoU 0.80, mostly unseen pixels). The key is now `target`, and
   configs with unknown or non-string keys are rejected.
+
+## E1b. Overfit check with look-direction alignment (2026-11-09)
+
+Same as E1 with `align_orientation: true` (decision D5); 6 of the 8 tiles come from
+look-direction-1 strips and are flipped north-south. IoU **0.9869** (best epoch 138),
+loss 1.99 -> 0.04, 16 min, peak GPU 2.2 GiB: flipping image, mask and valid together
+does not hurt learning. `run.json` records commit `0c7ea6b-dirty` (configs not yet
+committed when it ran).

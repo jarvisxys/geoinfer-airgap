@@ -22,8 +22,8 @@ another product; about 40 GB for the Val extent).
 - The official Val extent is kept for scene-level optical evaluation on the PS-RGBNIR
   TrainVal mosaic (D3) with the All-Val labels; this also exercises the stitcher on a
   real large scene.
-- D4 is built from val-split tiles of a single collection strip, so it has exact
-  optical co-registration and labels.
+- D4 is built from the val-split tiles (a single strip turned out to be too small; see
+  D3 for the mosaic actually built).
 - Official-Val SAR from SAR-MAG-POL strips is a "Could" item, only if time allows.
 
 **Cost:** a smaller held-out set than the official Val, and val sits next to train
@@ -106,3 +106,30 @@ is compared against the global `db_lee7` arm in S2.
 **Cost:** one more SAR-only training run in Phase 2. Per-tile normalisation was not
 added: a 450 m tile is often mostly water or fields, so its own statistics are less
 stable than a strip's.
+
+## D5. SAR and fused models see every strip from the same look direction (2026-11-09)
+
+**Context:** SN6 strips look north or south (`SAR_orientations.txt`), so building
+layover points opposite ways in the two groups (see D2: the SAR/optical offset depends
+on the look direction). SpaceNet 6 winning solutions flipped one group.
+
+**Decision:** `data.align_orientation: true` in `train_sar.yaml`, `train_fused.yaml`
+and `train_overfit.yaml`: look-direction-1 tiles are flipped north-south (image, mask
+and valid together) before training and evaluation. Optical-only stays unflipped (no
+look direction). Augmentation keeps the direction: only east-west flips; no
+north-south flips or 90-degree rotations.
+
+**Consequence for inference (Phase 3, S1 on D4):** inputs from look-direction-1 strips
+must be flipped before the model and the prediction flipped back. On a mosaic like D4
+this is per strip (`d4_strips.tif`). The dataset reports `flipped_ns` per sample.
+
+## D6. ImageNet encoder weights for all three S3 models (2026-11-09)
+
+**Plan wording:** "ImageNet init for the optical stem only; for 8-channel input, copy
+RGB weights into the extra channels scaled by 3/8."
+
+**Decision:** optical, SAR and fused U-Nets all start from the ImageNet ResNet-34
+encoder (`model.pretrained: resnet34_imagenet`), with the stem adapted by the plan's
+rule (channel i <- RGB weight i mod 3, x 3/C). A randomly initialised SAR model would
+handicap SAR-only in S3 for a reason unrelated to the sensor, so all three start the
+same way.

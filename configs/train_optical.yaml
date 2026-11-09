@@ -10,7 +10,7 @@ data:
   masks_dir: masks                 # under root (make masks)
   crop: 512                        # training crop, multiple of 32
   hflip: true                      # east-west only: keeps the SAR look direction
-  align_orientation: false         # flip look-direction-1 strips north-south (open question)
+  align_orientation: false         # optical has no look direction (decision D5)
   vary_by_epoch: true
   workers: 2
 norm:

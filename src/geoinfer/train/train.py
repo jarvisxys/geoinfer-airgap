@@ -277,7 +277,13 @@ def train(
         val_ds, batch_size=val_bs, shuffle=False, num_workers=workers, pin_memory=cuda
     )
 
-    net = build_unet(CHANNELS[cfg["modality"]])
+    arch = (registry or {}).get("unet", {})
+    net = build_unet(
+        CHANNELS[cfg["modality"]],
+        encoder=arch.get("encoder", "resnet34"),
+        decoder_channels=tuple(arch.get("decoder_channels", (256, 128, 64, 32, 16))),
+        classes=int(arch.get("classes", 1)),
+    )
     weights = cfg["model"].get("pretrained")
     if weights:
         if registry is None:

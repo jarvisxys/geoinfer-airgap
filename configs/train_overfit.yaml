@@ -10,7 +10,7 @@ data:
   masks_dir: masks
   crop: 512
   hflip: false
-  align_orientation: false
+  align_orientation: true          # as train_fused (decision D5)
   vary_by_epoch: false             # the same crop of each tile every epoch
   workers: 2
 norm:
