@@ -3,6 +3,8 @@ SHELL := /bin/bash
 
 SAMPLE ?= $(HOME)/geo-data/sample
 DATA ?= $(HOME)/geo-data/service
+VERSION ?= 0.3.0
+BUNDLE_OUT ?= /mnt/d/geo/bundles
 CFG ?= configs/train_fused.yaml
 
 .PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 s1-optical otsu test-db testdb-up testdb-down d4-quicklook postprocess-check figures-nb masks weights overfit \
@@ -144,7 +146,10 @@ serve-down:  ## stop the stack (keeps the database volume)
 airgap-test:  ## air-gapped stack test: --network none + internal network, one job per sensor mode
 	scripts/airgap_test.sh
 
-bench bundle:  ## (later phases)
+bundle:  ## offline bundle: make bundle VERSION=0.3.0 [BUNDLE_OUT=/mnt/d/geo/bundles]
+	scripts/make_offline_bundle.sh $(VERSION) $(BUNDLE_OUT)
+
+bench:  ## (later phases)
 	@echo "'$@' is not implemented yet; see the phase plan in docs/"
 
 clean:  ## remove caches
