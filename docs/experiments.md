@@ -101,3 +101,18 @@ effect is the seam score: naive pasting leaves hard steps (2.79), crop halves th
 (1.48), Hann and Tukey blending removes them (about 1.0 = no visible seams);
 `docs/figures/s1_d4_optical.png` shows a building cut at a tile corner. Blending costs
 no accuracy and no measurable time, so Hann (or Tukey) stays the default.
+
+## E5. ONNX export and parity (2026-11-09)
+
+`make export` (`scripts/export_run.py`): each S3 model's `best.pt` exported with opset 18
+to `models/s3/<run>/model.onnx` (input `image` (batch, C, h, w), output `logits`
+(batch, 1, h, w); batch, h and w dynamic), then PyTorch fp32 vs ONNX Runtime fp32 on 4
+random inputs (batch 1 at 512 x 512 and batch 3 at 256 x 384), GTX 1650 / CUDA EP.
+
+| Model | ONNX size | Max abs logit diff | Max abs probability diff |
+|---|---|---|---|
+| optical | 93.2 MiB | 1.0e-5 | 6.0e-8 |
+| SAR | 93.2 MiB | 1.8e-5 | 1.4e-7 |
+| fused | 93.3 MiB | 2.4e-5 | 2.4e-7 |
+
+All within the 1e-3 tolerance (`configs/export.yaml`); details in `export.json` per run.

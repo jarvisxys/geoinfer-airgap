@@ -1,0 +1,6 @@
+# ONNX export of trained models (plan Phase 2; engines for S4 in Phase 4).
+opset: 18
+parity:
+  tolerance: 0.001                 # max |logit difference| PyTorch fp32 vs ONNX Runtime fp32
+  random_batches: 2                # random inputs of the sizes below
+  sizes: [[1, 512, 512], [3, 256, 384]]   # [batch, h, w]: checks the dynamic axes
