@@ -146,3 +146,33 @@ random inputs (batch 1 at 512 x 512 and batch 3 at 256 x 384), GTX 1650 / CUDA E
 | fused | 93.3 MiB | 2.4e-5 | 2.4e-7 |
 
 All within the 1e-3 tolerance (`configs/export.yaml`); details in `export.json` per run.
+
+## E6. S3 robustness to clouds (2026-11-09)
+
+**Setup:** synthetic clouds (`preprocess.clouds`: fractal noise, beta 2.2, soft edges,
+train-split p98 white point, per-tile seeds so every model sees identical clouds) blended
+into the raw optical bands of the val split at 0-80 % cover
+(`scripts/cloud_curve.py`, `remote_cloud.sh`); each model at its tuned threshold. Clean-
+trained models = E2. Cloud-trained models: same configs plus
+`data.cloud_aug = {p: 0.5, max_coverage: 0.8}` (half the training samples get clouds of
+uniform random cover in [0, 0.8)), commit 100c767, `models/s3_clouds/` (DVC).
+
+| Val pixel IoU at cloud cover | 0 % | 20 % | 40 % | 60 % | 80 % |
+|---|---|---|---|---|---|
+| optical, clean-trained | 0.682 | 0.308 | 0.130 | 0.042 | 0.008 |
+| fused, clean-trained | 0.688 | 0.382 | 0.189 | 0.078 | 0.025 |
+| SAR only | 0.479 | 0.479 | 0.479 | 0.479 | 0.479 |
+| optical, cloud-trained | 0.686 | 0.654 | 0.623 | 0.578 | 0.502 |
+| fused, cloud-trained | 0.680 | 0.644 | 0.614 | 0.577 | **0.527** |
+
+Cloud-trained models on clean val (threshold from tune): optical 0.686 pixel IoU / 0.505
+object F1 (threshold 0.50), fused 0.680 / 0.507 (0.40).
+
+**Reading** (`docs/figures/s3_clouds_all.png`):
+- Trained without clouds, both optical models collapse: at 20 % cover they fall below SAR
+  alone, and the fused model does not fall back on its SAR input.
+- Cloud augmentation is what buys robustness: at 40 % cover IoU goes from 0.13-0.19 to
+  0.61-0.62, and clean accuracy is unchanged (0.686 / 0.680 vs 0.682 / 0.688).
+- With cloud training, optical and fused stay within 0.01 up to 60 % cover; at 80 % the
+  fused model leads (0.527 vs 0.502) and is the only model above SAR alone. SAR's value
+  in fusion is as a backstop under heavy cloud, not on clear or lightly clouded images.

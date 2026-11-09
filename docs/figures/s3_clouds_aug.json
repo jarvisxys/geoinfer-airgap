@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "test_list": "data/splits/val.txt",
+    "clouds": {
+      "beta": 2.2,
+      "softness": 0.15,
+      "coverages": [
+        0.0,
+        0.2,
+        0.4,
+        0.6,
+        0.8
+      ],
+      "brightness": null,
+      "seed": 42
+    },
+    "brightness": [
+      506.0,
+      580.0,
+      672.0,
+      1057.0
+    ]
+  },
+  "curves": {
+    "s3_optical_clouds": {
+      "modality": "optical",
+      "threshold": 0.5,
+      "points": [
+        {
+          "coverage": 0.0,
+          "iou": 0.6858,
+          "f1": 0.8136,
+          "seconds": 44.2
+        },
+        {
+          "coverage": 0.2,
+          "iou": 0.6536,
+          "f1": 0.7905,
+          "seconds": 87.2
+        },
+        {
+          "coverage": 0.4,
+          "iou": 0.6225,
+          "f1": 0.7673,
+          "seconds": 88.1
+        },
+        {
+          "coverage": 0.6,
+          "iou": 0.5775,
+          "f1": 0.7321,
+          "seconds": 255.8
+        },
+        {
+          "coverage": 0.8,
+          "iou": 0.5015,
+          "f1": 0.668,
+          "seconds": 465.6
+        }
+      ]
+    },
+    "s3_fused_clouds": {
+      "modality": "fused",
+      "threshold": 0.4,
+      "points": [
+        {
+          "coverage": 0.0,
+          "iou": 0.6796,
+          "f1": 0.8092,
+          "seconds": 428.4
+        },
+        {
+          "coverage": 0.2,
+          "iou": 0.6441,
+          "f1": 0.7835,
+          "seconds": 634.4
+        },
+        {
+          "coverage": 0.4,
+          "iou": 0.6143,
+          "f1": 0.7611,
+          "seconds": 597.0
+        },
+        {
+          "coverage": 0.6,
+          "iou": 0.5773,
+          "f1": 0.732,
+          "seconds": 628.7
+        },
+        {
+          "coverage": 0.8,
+          "iou": 0.5274,
+          "f1": 0.6906,
+          "seconds": 224.0
+        }
+      ]
+    }
+  }
+}
