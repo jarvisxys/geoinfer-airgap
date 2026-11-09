@@ -34,8 +34,14 @@ def main() -> None:
         nargs="+",
         default=[split_dir / f"subset_{s}.txt" for s in ("train", "tune", "val")],
     )
+    p.add_argument(
+        "--interim-root",
+        type=Path,
+        default=Path(dcfg["interim_root"]).expanduser(),
+        help="extracted SN6 AOI folder (holds SummaryData/)",
+    )
     a = p.parse_args()
-    interim = Path(dcfg["interim_root"]).expanduser()
+    interim = a.interim_root.expanduser()
     orient_lines = (interim / dcfg["orientations"]).read_text().splitlines()
     orient = {k: int(v) for k, v in (ln.split() for ln in orient_lines if ln.strip())}
     ids = sorted({t for f in a.lists for t in f.read_text().split()})
