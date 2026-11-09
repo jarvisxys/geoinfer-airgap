@@ -13,6 +13,7 @@ data:
   align_orientation: false         # optical has no look direction (decision D5)
   vary_by_epoch: true
   workers: 2
+  cloud_aug: null                  # e.g. {p: 0.5, max_coverage: 0.8, beta: 2.2, softness: 0.15}
   sar_cache: null                  # e.g. sar_cache (under root): cached Lee-filtered SAR
 norm:
   optical: global                  # minmax (per tile) | global (train 2-98 % + z-score)

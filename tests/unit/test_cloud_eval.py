@@ -51,3 +51,57 @@ def test_dataset_clouds_touch_optical_channels_only(scene: dict, io_cfg: IOConfi
     assert not np.array_equal(cloudy["image"][:4], clean["image"][:4])
     np.testing.assert_array_equal(cloudy["image"][4:], clean["image"][4:])  # SAR unchanged
     np.testing.assert_array_equal(cloudy["mask"], clean["mask"])
+
+
+def _train_ds(scene: dict, io_cfg: IOConfig, aug: dict | None, seed: int = 0) -> SN6Tiles:
+    return SN6Tiles(
+        _records(scene),
+        "fused",
+        _norm(scene),
+        scene["root"] / "masks",
+        io_cfg,
+        crop=32,
+        train=True,
+        hflip=False,
+        align_orientation=False,
+        seed=seed,
+        vary_by_epoch=True,
+        cloud_aug=aug,
+    )
+
+
+def test_cloud_augmentation_is_reproducible_and_optical_only(scene: dict, io_cfg: IOConfig) -> None:
+    aug = {"p": 1.0, "max_coverage": 0.8, "beta": 2.2, "softness": 0.15}
+    plain = _train_ds(scene, io_cfg, None)[0]
+    a = _train_ds(scene, io_cfg, aug)[0]
+    b = _train_ds(scene, io_cfg, aug)[0]
+    np.testing.assert_array_equal(a["image"], b["image"])  # same (seed, epoch, index)
+    assert a["offset"] == plain["offset"]  # crops drawn as without augmentation
+    np.testing.assert_array_equal(a["image"][4:], plain["image"][4:])  # SAR untouched
+    np.testing.assert_array_equal(a["mask"], plain["mask"])
+    assert a["cloud_coverage"] > 0
+    assert plain["cloud_coverage"] == 0
+
+
+def test_cloud_augmentation_probability_zero_is_off(scene: dict, io_cfg: IOConfig) -> None:
+    aug = {"p": 0.0, "max_coverage": 0.8, "beta": 2.2, "softness": 0.15}
+    np.testing.assert_array_equal(
+        _train_ds(scene, io_cfg, aug)[0]["image"], _train_ds(scene, io_cfg, None)[0]["image"]
+    )
+
+
+def test_cloud_augmentation_needs_optical(scene: dict, io_cfg: IOConfig) -> None:
+    with pytest.raises(ValueError, match="optical"):
+        SN6Tiles(
+            _records(scene),
+            "sar",
+            _norm(scene),
+            scene["root"] / "masks",
+            io_cfg,
+            crop=32,
+            train=True,
+            hflip=False,
+            align_orientation=False,
+            seed=0,
+            cloud_aug={"p": 0.5, "max_coverage": 0.8, "beta": 2.2, "softness": 0.15},
+        )

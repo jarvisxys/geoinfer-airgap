@@ -47,6 +47,7 @@ SCHEMA: dict[str, set[str] | None] = {
         "vary_by_epoch",
         "workers",
         "sar_cache",
+        "cloud_aug",
     },
     "norm": {"optical", "sar"},
     "model": {"pretrained"},
@@ -251,6 +252,7 @@ def train(
         train=True,
         hflip=bool(d["hflip"]),
         vary_by_epoch=bool(d["vary_by_epoch"]),
+        cloud_aug=d.get("cloud_aug"),
         **common,
     )
     if cfg["eval"].get("target", "whole_tiles") == "train_crops":
