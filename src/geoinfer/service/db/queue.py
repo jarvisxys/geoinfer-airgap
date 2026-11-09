@@ -71,3 +71,22 @@ def worker_alive(session: Session, max_age_s: float) -> bool:
         {"s": max_age_s},
     ).scalar_one()
     return bool(n)
+
+
+def requeue_orphans(session: Session, worker_id: str) -> int:
+    """Put ``worker_id``'s ``running`` jobs back in the queue; returns how many.
+
+    A worker calls this on start-up: jobs it still holds were cut off when its previous
+    process died. Results are written to the database only when a job finishes, so a
+    cut-off job left no rows behind (its output folder is overwritten on the rerun).
+    """
+    r = session.execute(
+        text(
+            """
+            UPDATE jobs SET status = 'queued', worker_id = NULL, started_at = NULL
+            WHERE status = 'running' AND worker_id = :w
+            """
+        ),
+        {"w": worker_id},
+    )
+    return int(getattr(r, "rowcount", 0) or 0)
