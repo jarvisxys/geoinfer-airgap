@@ -34,3 +34,47 @@ look-direction-1 strips and are flipped north-south. IoU **0.9869** (best epoch 
 loss 1.99 -> 0.04, 16 min, peak GPU 2.2 GiB: flipping image, mask and valid together
 does not hurt learning. `run.json` records commit `0c7ea6b-dirty` (configs not yet
 committed when it ran).
+
+## E2. S3 first server runs: optical, SAR, fused (2026-11-09)
+
+**Setup:** college server, GPU 1 (RTX PRO 6000 Blackwell, fp16), the three models trained
+in parallel with `scripts/server/remote_train.sh`: full train split (1798 tiles), tune
+split for model selection, 30 epochs, batch 16, 512 px crops, east-west flips, 24 loader
+workers each; optical `global`, SAR `db_lee7`; look-direction alignment for SAR and
+fused (D5); ImageNet encoder for all (D6). Evaluation (`scripts/evaluate_run.py`):
+threshold with the best pixel IoU on tune (sweep 0.20-0.80), then the val split (637
+tiles, whole tiles, map orientation); object F1 = SpaceNet matching, IoU >= 0.5,
+buildings under 20 m2 ignored, per tile against the tile label polygons.
+
+| Model | Best epoch | Tune IoU | Thr | Val pixel IoU raw / clean | Val pixel F1 | Val object F1 | Train time |
+|---|---|---|---|---|---|---|---|
+| optical | 11 | 0.773 | 0.55 | 0.682 / 0.682 | 0.811 | 0.508 | 31 min |
+| SAR | 20 | 0.558 | 0.20 | 0.479 / 0.466 | 0.648 | 0.244 | 60 min |
+| fused | 21 | 0.754 | 0.40 | **0.688** / 0.685 | **0.815** | **0.519** | 74 min |
+
+Val pixel IoU (raw) by look direction of the tile (353 / 284 tiles):
+
+| Model | Direction 0 | Direction 1 |
+|---|---|---|
+| optical | 0.610 | 0.721 |
+| SAR | 0.372 | 0.536 |
+| fused | 0.628 | 0.718 |
+
+**Reading:**
+- Fused is slightly ahead of optical on the held-out val split (+0.005 pixel IoU, +0.011
+  object F1) although it was behind on the tune split; the gain is on direction-0
+  tiles. SAR alone reaches about 70 % of the optical IoU and half its object F1.
+- The thresholds are interior optima of a 0.05-0.95 sweep (SAR peaks at 0.15-0.20: its
+  probabilities are less confident).
+- Clean-up (open 3, close 3, < 20 m2) leaves optical unchanged and costs SAR 0.013
+  IoU: SAR masks are fragmented and opening removes true positives. Object F1 lags
+  pixel F1 mostly through missed small buildings and merged neighbours.
+- SAR reaches 61 % of the optical IoU on direction 0 and 74 % on direction 1, the
+  direction with the smaller and more consistent SAR/optical offsets in D2. With the
+  fused gain this small, D2's per-strip shift correction is worth testing next.
+- Runs, checkpoints and logs: `models/s3/<model>/` (DVC, `models/s3.dvc`). `run.json`
+  shows `git_commit: unknown` for these runs (server copy without `.git`); since then
+  `push_code.sh` writes `REVISION`. All three ran on server commit 5cd3a2d (`eval.json`
+  on 3a68fd0, which only widened the threshold sweep).
+- Loader-bound: SAR and fused epochs (~100-190 s) are dominated by the per-sample Lee
+  filter on a busy CPU; the GPU step itself is 69 ms per batch of 16.

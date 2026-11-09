@@ -174,7 +174,10 @@ def _git_commit() -> str:
         ).stdout.strip()
         return f"{head}-dirty" if status else head
     except (OSError, subprocess.CalledProcessError):
-        return "unknown"
+        # no git repository (e.g. a `git archive` copy on the server): push_code.sh
+        # records the pushed commit in REVISION
+        rev = Path("REVISION")
+        return rev.read_text().strip() if rev.exists() else "unknown"
 
 
 def _batch(b: Mapping[str, Any], device: str) -> tuple[Any, Any, Any]:

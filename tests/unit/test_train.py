@@ -177,3 +177,20 @@ def test_resolve_amp_probe_on_gpu() -> None:
         assert not on
     for k, v in net.state_dict().items():  # probe ran on a copy
         torch.testing.assert_close(v, before[k])
+
+
+def test_git_commit_falls_back_to_revision_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    from geoinfer.train import train as train_mod
+
+    def no_git(*a: object, **k: object) -> None:
+        raise subprocess.CalledProcessError(128, "git")
+
+    monkeypatch.setattr(subprocess, "run", no_git)
+    monkeypatch.chdir(tmp_path)
+    assert train_mod._git_commit() == "unknown"
+    (tmp_path / "REVISION").write_text("abc1234\n")
+    assert train_mod._git_commit() == "abc1234"
