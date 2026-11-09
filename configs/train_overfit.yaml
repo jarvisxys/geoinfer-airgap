@@ -1,0 +1,34 @@
+# Laptop sanity check (plan, Phase 2): overfit 8 fixed crops until the loss nearly
+# reaches zero. Catches label, flip and normalisation bugs before server hours are spent.
+run_name: overfit8_fused
+modality: fused
+seed: 0
+data:
+  root: ~/geo-data/subset
+  train_list: data/splits/overfit8.txt    # the 8 subset-train tiles with most buildings
+  val_list: data/splits/overfit8.txt
+  masks_dir: masks
+  crop: 512
+  hflip: false
+  align_orientation: true          # as train_fused (decision D5)
+  vary_by_epoch: false             # the same crop of each tile every epoch
+  workers: 2
+norm:
+  optical: global
+  sar: db_lee7
+model:
+  pretrained: resnet34_imagenet
+optim:
+  epochs: 150
+  batch_size: 4
+  lr: 0.001
+  weight_decay: 0.0
+  amp: auto                        # fp16 unless known unreliable (GTX 16xx) or a probe fails
+  grad_clip: 1.0
+loss:
+  bce: 1.0
+  dice: 1.0
+eval:
+  threshold: 0.5
+  target: train_crops              # score the same fixed crops (overfit check)
+out_dir: outputs/runs

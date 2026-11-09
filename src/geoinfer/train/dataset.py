@@ -211,6 +211,8 @@ class SN6Tiles:
         Flip look-direction-1 strips north-south (image, mask and valid).
     seed
         Base seed; draws depend on ``(seed, epoch, index)`` only.
+    vary_by_epoch
+        False keeps every tile's crop and flip fixed across epochs (overfit checks).
     """
 
     def __init__(
@@ -225,6 +227,7 @@ class SN6Tiles:
         hflip: bool,
         align_orientation: bool,
         seed: int,
+        vary_by_epoch: bool = True,
     ) -> None:
         if modality not in MODALITIES:
             raise ValueError(f"modality must be one of {MODALITIES}, got {modality!r}")
@@ -235,6 +238,7 @@ class SN6Tiles:
         self.masks_dir, self.io_cfg = masks_dir, io_cfg
         self.crop, self.train, self.hflip = crop, train, hflip
         self.align_orientation, self.seed = align_orientation, seed
+        self.vary_by_epoch = vary_by_epoch
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -269,7 +273,7 @@ class SN6Tiles:
         offset, hflipped = (0, 0), False
         if self.train:
             assert self.crop is not None
-            rng = np.random.default_rng([self.seed, self.epoch, i])
+            rng = np.random.default_rng([self.seed, self.epoch if self.vary_by_epoch else 0, i])
             h, w = mask.shape
             r0 = int(rng.integers(0, h - self.crop + 1))
             c0 = int(rng.integers(0, w - self.crop + 1))
