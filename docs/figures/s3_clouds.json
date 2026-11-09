@@ -1,0 +1,110 @@
+{
+  "meta": {
+    "test_list": "data/splits/val.txt",
+    "clouds": {
+      "beta": 2.2,
+      "softness": 0.15,
+      "coverages": [
+        0.0,
+        0.2,
+        0.4,
+        0.6,
+        0.8
+      ],
+      "brightness": null,
+      "seed": 42
+    },
+    "brightness": [
+      506.0,
+      580.0,
+      672.0,
+      1057.0
+    ]
+  },
+  "curves": {
+    "optical": {
+      "modality": "optical",
+      "threshold": 0.55,
+      "points": [
+        {
+          "coverage": 0.0,
+          "iou": 0.6823,
+          "f1": 0.8111,
+          "seconds": 194.7
+        },
+        {
+          "coverage": 0.2,
+          "iou": 0.3081,
+          "f1": 0.471,
+          "seconds": 449.4
+        },
+        {
+          "coverage": 0.4,
+          "iou": 0.1295,
+          "f1": 0.2292,
+          "seconds": 423.1
+        },
+        {
+          "coverage": 0.6,
+          "iou": 0.0424,
+          "f1": 0.0813,
+          "seconds": 224.3
+        },
+        {
+          "coverage": 0.8,
+          "iou": 0.0075,
+          "f1": 0.015,
+          "seconds": 230.9
+        }
+      ]
+    },
+    "fused": {
+      "modality": "fused",
+      "threshold": 0.4,
+      "points": [
+        {
+          "coverage": 0.0,
+          "iou": 0.6877,
+          "f1": 0.8149,
+          "seconds": 201.0
+        },
+        {
+          "coverage": 0.2,
+          "iou": 0.3823,
+          "f1": 0.5532,
+          "seconds": 345.1
+        },
+        {
+          "coverage": 0.4,
+          "iou": 0.1885,
+          "f1": 0.3173,
+          "seconds": 308.5
+        },
+        {
+          "coverage": 0.6,
+          "iou": 0.0775,
+          "f1": 0.1439,
+          "seconds": 317.0
+        },
+        {
+          "coverage": 0.8,
+          "iou": 0.0249,
+          "f1": 0.0485,
+          "seconds": 305.3
+        }
+      ]
+    },
+    "sar": {
+      "modality": "sar",
+      "threshold": 0.2,
+      "points": [
+        {
+          "coverage": 0.0,
+          "iou": 0.4788,
+          "f1": 0.6476,
+          "seconds": 88.3
+        }
+      ]
+    }
+  }
+}
