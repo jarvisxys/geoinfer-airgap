@@ -54,6 +54,7 @@ dev = [
     "pytest>=9.0",
     "pytest-cov>=7.0",
     "types-pyyaml",
+    "httpx>=0.28.1",
 ]
 notebook = [
     "ipykernel>=7.4.0",
@@ -110,3 +111,7 @@ markers = [
 [tool.coverage.run]
 source = ["geoinfer"]
 branch = true
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency markers are meant to be called in argument defaults
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
