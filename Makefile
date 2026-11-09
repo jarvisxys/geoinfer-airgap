@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 s1-optical otsu d4-quicklook postprocess-check figures-nb masks weights overfit \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 s1-optical otsu test-db testdb-up testdb-down d4-quicklook postprocess-check figures-nb masks weights overfit \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -35,6 +35,17 @@ test:  ## unit tests without GPU or dataset
 
 test-gpu:  ## GPU-only tests
 	uv run pytest -m gpu
+
+testdb-up:  ## start a local PostGIS for the db tests (docker, port 55432)
+	docker run -d --name geoinfer-testdb -e POSTGRES_USER=geoinfer -e POSTGRES_PASSWORD=geoinfer-test \
+		-e POSTGRES_DB=geoinfer_test -p 127.0.0.1:55432:5432 postgis/postgis:17-3.5
+
+testdb-down:  ## remove the local test PostGIS
+	docker rm -f geoinfer-testdb
+
+test-db:  ## service database tests against the local PostGIS (make testdb-up first)
+	GEOINFER_TEST_DB_URL=postgresql+psycopg://geoinfer:geoinfer-test@127.0.0.1:55432/geoinfer_test \
+		uv run pytest -m db
 
 test-data:  ## tests that need the SpaceNet 6 sample under $(SAMPLE)
 	SAMPLE=$(SAMPLE) uv run pytest -m data
