@@ -24,6 +24,7 @@ class WorkerSettings:
     providers: tuple[str, ...]
     max_aoi_mpx: float
     scratch_dir: Path
+    metrics_port: int
 
 
 @dataclass(frozen=True)
@@ -72,5 +73,6 @@ def load_settings(path: Path | None = None) -> Settings:
             providers=tuple(w["providers"]),
             max_aoi_mpx=float(w["max_aoi_mpx"]),
             scratch_dir=Path(os.environ.get("GEOINFER_SCRATCH", w["scratch_dir"])),
+            metrics_port=int(w["metrics_port"]),
         ),
     )

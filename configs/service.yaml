@@ -19,3 +19,17 @@ worker:
   providers: [CUDAExecutionProvider, CPUExecutionProvider]   # first available wins
   max_aoi_mpx: 150                  # larger AOIs fail fast (the probability map is in RAM)
   scratch_dir: /data/scratch        # stitcher memmaps for AOIs above tiling memmap_min_px
+  metrics_port: 9101                # Prometheus /metrics of the worker (0: off)
+# Models the service ships (make service-models assembles them into one registry folder,
+# with registry.yaml, stats/stats.json and one folder per model). Threshold and norm come
+# from each run's eval.json and run.json; the export must have passed its parity check.
+registry:
+  unet_r34_optical_clouds_v1: {run: models/s3_clouds/s3_optical_clouds, sensor_mode: optical}
+  unet_r34_sar_lee7_v1: {run: models/s3/sar, sensor_mode: sar}
+  unet_r34_fused_clouds_v1: {run: models/s3_clouds/s3_fused_clouds, sensor_mode: fused}
+# Demo scene for the stack smoke / air-gap test (scripts/make_demo_scene.py): a band of the
+# D4 mosaic, chosen where one SAR look direction covers the most pixels.
+demo_scene:
+  source: d4                        # key under scenes: in configs/data.yaml
+  rows: 4096                        # band height in px (full mosaic width, 2621 px)
+  step: 512                         # candidate band offsets

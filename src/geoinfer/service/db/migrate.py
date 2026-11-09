@@ -25,3 +25,18 @@ def upgrade(url: str, revision: str = "head") -> None:
 def downgrade(url: str, revision: str = "base") -> None:
     """Migrate the database at ``url`` down to ``revision``."""
     command.downgrade(_config(url), revision)
+
+
+def main() -> None:
+    """``python -m geoinfer.service.db.migrate``: upgrade ``GEOINFER_DB_URL`` to head."""
+    import os
+
+    url = os.environ.get("GEOINFER_DB_URL")
+    if not url:
+        raise SystemExit("GEOINFER_DB_URL is not set")
+    upgrade(url)
+    print("database at head")
+
+
+if __name__ == "__main__":
+    main()

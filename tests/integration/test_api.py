@@ -71,7 +71,7 @@ def env(tmp_path: Path, make_tiff: MakeTiff) -> Iterator[dict]:
         default_models={"optical": "m_opt", "sar": "m_sar", "fused": "m_fus"},
         stats_file=Path("stats/stats.json"),
         preprocess_config=Path("configs/preprocess.yaml"),
-        worker=WorkerSettings("w", 1.0, 3.0, 8, ("CPUExecutionProvider",), 150.0, tmp_path),
+        worker=WorkerSettings("w", 1.0, 3.0, 8, ("CPUExecutionProvider",), 150.0, tmp_path, 0),
     )
     engine = create_engine(URL)
     with Session(engine) as s:
@@ -260,3 +260,30 @@ def test_register_model_records_hash_and_refuses_outside_files(env: dict, tmp_pa
             register_model(s, "x", tmp_path / "inbox" / "opt.tif", reg, "optical", 4, 0.5)
     ids = [x["id"] for x in env["client"].get("/v1/models").json()]
     assert ids == ["m_fus", "m_opt"]
+
+
+def test_sync_manifest_registers_and_checks_hashes(env: dict, tmp_path: Path) -> None:
+    import yaml
+
+    from geoinfer.service.registry import sync_manifest
+
+    reg = tmp_path / "reg"
+    (reg / "m_sar").mkdir(parents=True)
+    (reg / "m_sar" / "model.onnx").write_bytes(b"sar")
+    entry = {
+        "id": "m_sar",
+        "path": "m_sar/model.onnx",
+        "sensor_mode": "sar",
+        "in_channels": 4,
+        "threshold": 0.2,
+        "norm": {"optical": "global", "sar": "db_lee7"},
+        "sha256": hashlib.sha256(b"sar").hexdigest(),
+    }
+    (reg / "registry.yaml").write_text(yaml.safe_dump({"models": [entry]}))
+    with Session(env["engine"]) as s:
+        (m,) = sync_manifest(s, reg)
+        s.commit()
+        assert (m.threshold, m.norm) == (0.2, entry["norm"])
+    (reg / "m_sar" / "model.onnx").write_bytes(b"altered")
+    with Session(env["engine"]) as s, pytest.raises(ValueError, match="sha256"):
+        sync_manifest(s, reg)

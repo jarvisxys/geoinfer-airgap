@@ -1,0 +1,9 @@
+# only pyproject, uv.lock, README, LICENSE, src/ and configs/ go into the images
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!src/
+!configs/
+**/__pycache__

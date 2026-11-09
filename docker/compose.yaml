@@ -1,0 +1,85 @@
+# Offline service stack (plan section 3): db (PostGIS, also the job queue), init (migrate
+# + register models, then exits), api (CPU), worker (one per GPU).
+# db and worker sit only on the internal network `backend` (no route out, ever); api also
+# joins `front` to publish port 8000. compose.airgap.yaml removes `front` as well.
+#
+#   cp docker/.env.example docker/.env   # then set GEOINFER_DB_PASSWORD and the paths
+#   docker compose -f docker/compose.yaml up -d --wait
+name: geoinfer
+
+x-service-env: &service-env
+  GEOINFER_DB_URL: postgresql+psycopg://geoinfer:${GEOINFER_DB_PASSWORD:?set it in docker/.env}@db:5432/geoinfer
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: geoinfer
+      POSTGRES_DB: geoinfer
+      POSTGRES_PASSWORD: ${GEOINFER_DB_PASSWORD:?set it in docker/.env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [backend]
+    mem_limit: 1g
+    healthcheck:
+      # over TCP: during first-run init the server listens on the socket only
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U geoinfer -d geoinfer"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  init:
+    image: geoinfer-api:${GEOINFER_TAG:-dev}
+    command: ["sh", "-c", "python -m geoinfer.service.db.migrate && python -m geoinfer.service.registry sync"]
+    environment: *service-env
+    volumes: ["${GEOINFER_MODELS:?set it in docker/.env}:/models:ro"]
+    networks: [backend]
+    user: "${GEOINFER_UID:-1000}:${GEOINFER_GID:-1000}"
+    depends_on:
+      db: {condition: service_healthy}
+    restart: "no"
+
+  api:
+    image: geoinfer-api:${GEOINFER_TAG:-dev}
+    environment: *service-env
+    volumes:
+      - "${GEOINFER_DATA:?set it in docker/.env}:/data"
+      - "${GEOINFER_MODELS}:/models:ro"
+    networks: [backend, front]
+    ports: ["127.0.0.1:${GEOINFER_PORT:-8000}:8000"]
+    user: "${GEOINFER_UID:-1000}:${GEOINFER_GID:-1000}"
+    mem_limit: 1g
+    depends_on:
+      init: {condition: service_completed_successfully}
+    restart: unless-stopped
+
+  worker:
+    image: geoinfer-worker:${GEOINFER_TAG:-dev}
+    environment:
+      <<: *service-env
+      GEOINFER_WORKER_ID: worker-gpu${GEOINFER_GPU:-0}
+    volumes:
+      - "${GEOINFER_DATA}:/data"
+      - "${GEOINFER_MODELS}:/models:ro"
+    networks: [backend]
+    user: "${GEOINFER_UID:-1000}:${GEOINFER_GID:-1000}"
+    mem_limit: 3g
+    stop_grace_period: 120s   # SIGTERM finishes the running job first
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GEOINFER_GPU:-0}"]
+              capabilities: [gpu]
+    depends_on:
+      init: {condition: service_completed_successfully}
+    restart: unless-stopped
+
+networks:
+  backend:
+    internal: true
+  front: {}
+
+volumes:
+  pgdata: {}

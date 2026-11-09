@@ -2,6 +2,7 @@
 SHELL := /bin/bash
 
 SAMPLE ?= $(HOME)/geo-data/sample
+DATA ?= $(HOME)/geo-data/service
 CFG ?= configs/train_fused.yaml
 
 .PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 s1-optical otsu test-db testdb-up testdb-down d4-quicklook postprocess-check figures-nb masks weights overfit \
@@ -124,7 +125,26 @@ overfit:  ## laptop sanity check: overfit 8 fixed crops (configs/train_overfit.y
 export:  ## ONNX export + parity check of the S3 runs (models/s3, needs dvc pull)
 	uv run python -W ignore::DeprecationWarning scripts/export_run.py models/s3/optical models/s3/sar models/s3/fused
 
-serve bench bundle:  ## (later phases)
+images:  ## build the service images (api, worker-ort) with tag dev
+	docker build -f docker/api.Dockerfile -t geoinfer-api:dev .
+	docker build -f docker/worker-ort.Dockerfile -t geoinfer-worker:dev .
+
+service-models:  ## assemble the service model registry folder (configs/service.yaml registry:)
+	uv run python scripts/build_service_models.py $(OUT)
+
+demo-scene:  ## cut the D4 demo scene into $(DATA)/inbox for the stack tests
+	uv run python scripts/make_demo_scene.py $(DATA)/inbox | tee /dev/stderr | tail -1 > $(DATA)/demo_scene.json
+
+serve:  ## start the stack (docker/.env); API on 127.0.0.1:8000
+	docker compose -f docker/compose.yaml up -d --wait
+
+serve-down:  ## stop the stack (keeps the database volume)
+	docker compose -f docker/compose.yaml down
+
+airgap-test:  ## air-gapped stack test: --network none + internal network, one job per sensor mode
+	scripts/airgap_test.sh
+
+bench bundle:  ## (later phases)
 	@echo "'$@' is not implemented yet; see the phase plan in docs/"
 
 clean:  ## remove caches

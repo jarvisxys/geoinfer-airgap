@@ -25,6 +25,7 @@ from typing import Any
 
 import yaml
 from geoalchemy2.shape import from_shape, to_shape
+from prometheus_client import CollectorRegistry, Counter, Histogram, start_http_server
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -34,7 +35,7 @@ from geoinfer.service.api.settings import Settings, load_settings
 from geoinfer.service.db import queue
 from geoinfer.service.db.schema import Building, Job, Model, Scene
 from geoinfer.service.registry import sha256_file
-from geoinfer.service.worker.pipeline import SceneInputs, segment_aoi
+from geoinfer.service.worker.pipeline import SceneInputs, SegmentResult, segment_aoi
 from geoinfer.service.worker.predictor import OnnxPredictor, Predictor
 from geoinfer.tiling.config import TilingConfig, load_tiling_config
 from geoinfer.train.dataset import Normalizer
@@ -63,6 +64,37 @@ def scene_inputs(scene: Scene, mode: str, inbox: Path) -> SceneInputs:
             raise ValueError(f"fused scene {scene.id} has no sar_path")
         sar = inbox / scene.sar_path
     return SceneInputs(mode, opt, sar, scene.orientation)
+
+
+class WorkerMetrics:
+    """Prometheus metrics of one worker (own registry, served on ``metrics_port``)."""
+
+    def __init__(self) -> None:
+        self.registry = CollectorRegistry()
+        self.jobs = Counter(
+            "geoinfer_worker_jobs", "Jobs finished, by status", ["status"], registry=self.registry
+        )
+        self.tiles = Counter("geoinfer_worker_tiles", "Tiles inferred", registry=self.registry)
+        self.job_seconds = Histogram(
+            "geoinfer_worker_job_seconds",
+            "Wall time of a job (claim to result)",
+            buckets=(0.5, 1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1800),
+            registry=self.registry,
+        )
+        self.stage_seconds = Counter(
+            "geoinfer_worker_stage_seconds",
+            "Time spent per pipeline stage",
+            ["stage"],
+            registry=self.registry,
+        )
+
+    def record(self, res: SegmentResult) -> None:
+        self.jobs.labels("ready").inc()
+        self.tiles.inc(res.n_tiles)
+        self.job_seconds.observe(res.timings["total_s"])
+        for k, v in res.timings.items():
+            if k != "total_s":
+                self.stage_seconds.labels(k.removesuffix("_s")).inc(v)
 
 
 @dataclass
@@ -113,6 +145,7 @@ class Worker:
         self.io_cfg = io_cfg or load_io_config()
         self.stop = threading.Event()
         self.gpu = _gpu_name()
+        self.metrics = WorkerMetrics()
         self._models: dict[str, _Loaded] = {}
         self._stats: dict[str, Any] | None = None
         self._sar_arms: dict[str, Any] | None = None
@@ -174,7 +207,7 @@ class Worker:
 
     # -- jobs --------------------------------------------------------------------------
 
-    def _run(self, s: Session, job: Job) -> None:
+    def _run(self, s: Session, job: Job) -> SegmentResult:
         scene = s.get(Scene, job.scene_id)
         model = s.get(Model, job.model_id)
         if scene is None or model is None:
@@ -223,6 +256,7 @@ class Worker:
             res.n_tiles,
             res.timings["total_s"],
         )
+        return res
 
     def process_one(self) -> bool:
         """Claim and run one job; False when the queue is empty."""
@@ -234,10 +268,12 @@ class Worker:
             jid = job.id
             log.info("claimed job %s", jid)
             try:
-                self._run(s, job)
+                res = self._run(s, job)
                 s.commit()
+                self.metrics.record(res)
             except Exception as e:
                 s.rollback()
+                self.metrics.jobs.labels("failed").inc()
                 log.exception("job %s failed", jid)
                 failed = s.get(Job, jid, populate_existing=True)
                 if failed is not None:
@@ -262,6 +298,9 @@ class Worker:
             log.warning("re-queued %d job(s) left running by a previous process", n)
         hb = threading.Thread(target=self._heartbeats, name="heartbeat", daemon=True)
         hb.start()
+        port = self.settings.worker.metrics_port
+        if port:
+            start_http_server(port, registry=self.metrics.registry)
         log.info("worker %s ready (gpu %s)", self.id, self.gpu)
         try:
             while not self.stop.is_set():

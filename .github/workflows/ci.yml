@@ -49,3 +49,19 @@ jobs:
 
       - name: Tests
         run: uv run pytest -m "not gpu and not data" --cov=geoinfer --cov-report=term-missing
+
+  # plan section 8: CI also builds the API image (the worker image needs the CUDA wheels,
+  # about 3 GB, and is built locally with `make images`)
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the API image
+        run: docker build -f docker/api.Dockerfile -t geoinfer-api:ci .
+
+      - name: Import check without network
+        run: >
+          docker run --rm --network none geoinfer-api:ci python -c
+          "import sys, geoinfer.service.api.app, geoinfer.service.registry;
+          assert 'torch' not in sys.modules; print('ok')"
