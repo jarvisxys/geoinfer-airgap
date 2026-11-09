@@ -372,12 +372,18 @@ def main() -> None:
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    p.add_argument(
+        "--interim-root",
+        type=Path,
+        default=None,
+        help="extracted SN6 AOI folder (holds SummaryData/); default: data.yaml interim_root",
+    )
     a = p.parse_args()
     cfg = load_train_config(a.config, a.set)
     dcfg = yaml.safe_load(Path("configs/data.yaml").read_text())
     pcfg = yaml.safe_load(Path("configs/preprocess.yaml").read_text())
     mcfg = yaml.safe_load(Path("configs/models.yaml").read_text())
-    interim = Path(dcfg["interim_root"]).expanduser()
+    interim = (a.interim_root or Path(dcfg["interim_root"])).expanduser()
     lines = (interim / dcfg["orientations"]).read_text().splitlines()
     orient = {k: int(v) for k, v in (ln.split() for ln in lines if ln.strip())}
     info = train(
