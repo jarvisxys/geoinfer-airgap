@@ -268,9 +268,14 @@ def main() -> None:
     out_json.write_text(json.dumps({"meta": meta, "results": results}, indent=2) + "\n")
     print(f"wrote {out_json}")
 
-    # seam close-ups: a window around a tile corner of the O = 0 grid
-    yc = int(rows[np.argmin(np.abs(rows - h // 2))])
-    xc = int(cols[np.argmin(np.abs(cols - w // 2))])
+    # seam close-ups: the crossing of seam lines with the most labelled building pixels
+    # within 128 px (so the panel shows roofs, not water)
+    cands = [
+        (int(r), int(c)) for r in r0_ for c in c0_ if 128 <= r < h - 128 and 128 <= c < w - 128
+    ]
+    yc, xc = max(
+        cands, key=lambda rc: int(gt[rc[0] - 128 : rc[0] + 128, rc[1] - 128 : rc[1] + 128].sum())
+    )
     win = (slice(yc - 128, yc + 128), slice(xc - 128, xc + 128))
     fig, ax = plt.subplots(1, len(probs), figsize=(4 * len(probs), 4.4), dpi=100)
     for x, (name, pr) in zip(np.atleast_1d(ax), probs.items(), strict=True):
