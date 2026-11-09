@@ -39,6 +39,11 @@ export = [
 worker = [
     "onnxruntime-gpu[cuda,cudnn]==1.31.1",
 ]
+# TensorRT 10 for the ONNX Runtime TensorRT provider (ORT 1.31 links libnvinfer.so.10;
+# S4 engine study only, not in the images).
+trt = [
+    "tensorrt-cu13==10.16.1.11",
+]
 # Offline REST service (Phase 3).
 serve = [
     "fastapi>=0.162,<0.163",

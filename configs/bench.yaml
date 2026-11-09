@@ -1,0 +1,24 @@
+# Phase 4 benchmarks (plan section 10). S4 / E1 / E5: inference engines and batch sizes;
+# tile / overlap sweep for the Pareto plot. Same scene, model and tiles for every engine.
+protocol:
+  warmup_batches: 50                # not timed
+  repeats: 3                        # timed repetitions, reported as mean +- std
+  min_tiles_per_repeat: 256         # each repeat runs at least this many tiles
+  gpu_sample_hz: 10                 # NVML sampler (utilisation, memory, clock, temperature)
+s4:
+  scene: d4                         # key under scenes: in configs/data.yaml
+  model: unet_r34_optical_clouds_v1 # id in the service model folder (registry.yaml)
+  models_dir: /mnt/d/geo/models/service
+  run_dir: models/s3_clouds/s3_optical_clouds   # same model for the PyTorch engines
+  tile: 512
+  overlap: 64
+  n_tiles: 128                      # real normalised D4 tiles held in RAM for timing
+  engines: [torch_fp32, torch_amp, ort_fp32, ort_fp16, trt_fp16]
+  batches: [1, 4, 8, 16, 32, 64]
+  accuracy_batch: 8                 # whole-D4 run per engine: IoU drop vs FP32
+  trt_cache: ~/geo-data/scratch/trt_cache   # built engines (per GPU, per shape profile)
+sweep:                              # tile x overlap, end to end through the worker pipeline
+  engine: ort_fp32
+  tiles: [256, 512, 1024]
+  overlaps: [0, 32, 64, 128]
+  pixels_per_batch: 2097152         # batch = this / tile^2 (8 at 512 px): same GPU load

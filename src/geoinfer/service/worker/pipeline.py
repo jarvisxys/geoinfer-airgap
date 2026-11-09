@@ -124,7 +124,7 @@ def aoi_window(aoi: BaseGeometry, transform: Affine, width: int, height: int) ->
     return Window(c0, r0, c1 - c0, r1 - r0)
 
 
-def _prepare(
+def prepare_tile(
     spec: TileSpec,
     scene: SceneInputs,
     readers: dict[str, RasterReader],
@@ -257,7 +257,7 @@ def segment_aoi(
                 continue
             t0 = time.perf_counter()
             g = replace(spec, y0=spec.y0 + int(win.row_off), x0=spec.x0 + int(win.col_off))
-            prep = _prepare(g, scene, readers, norm, tcfg.pad_mode, flip)
+            prep = prepare_tile(g, scene, readers, norm, tcfg.pad_mode, flip)
             timings["prepare_s"] += time.perf_counter() - t0
             if prep is None:
                 continue
