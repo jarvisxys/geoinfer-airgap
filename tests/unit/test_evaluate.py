@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -102,3 +104,45 @@ def test_perfect_predictions_score_one(scene: dict, io_cfg: IOConfig) -> None:
     assert out["object"]["tp"] == 2  # one 48 m2 building per tile
     assert set(out["by_orientation"]) == {"0", "1"}
     assert out["tiles"] == 2
+
+
+def test_load_run_rebuilds_model_and_dataset(scene: dict, tmp_path) -> None:
+    import json
+
+    from geoinfer.models.unet import build_unet
+    from geoinfer.preprocess.clouds import TileClouds
+    from geoinfer.train.evaluate import load_run
+
+    if not Path("data/processed/stats/stats.json").exists():
+        pytest.skip("needs the DVC-tracked train statistics")
+    root = scene["root"]
+    (root / "SummaryData").mkdir()
+    (root / "SummaryData" / "SAR_orientations.txt").write_text(
+        "".join(f"{k} {v}\n" for k, v in scene["orient"].items())
+    )
+    run = tmp_path / "run"
+    run.mkdir()
+    cfg = {
+        "modality": "fused",
+        "seed": 0,
+        "norm": {"optical": "global", "sar": "db"},
+        "data": {
+            "root": str(root),
+            "masks_dir": "masks",
+            "align_orientation": True,
+            "crop": 64,
+            "sar_cache": None,
+        },
+        "optim": {"amp": "auto"},
+    }
+    (run / "run.json").write_text(json.dumps({"run_name": "r", "config": cfg}))
+    (run / "eval.json").write_text(json.dumps({"threshold": 0.45}))
+    torch.save({"model": build_unet(8).state_dict(), "epoch": 3}, run / "best.pt")
+    lst = tmp_path / "ids.txt"
+    lst.write_text("\n".join(scene["ids"]) + "\n")
+    lr = load_run(run, "cpu", interim_root=root)
+    assert (lr.epoch, lr.threshold, lr.amp) == (3, 0.45, False)
+    ds = lr.dataset(lst)
+    assert ds[0]["image"].shape == (8, 64, 64)
+    cloudy = lr.dataset(lst, optical_corrupt=TileClouds(0.5, 2.2, 0.15, [900.0] * 4, 1))[0]
+    assert not np.array_equal(cloudy["image"][:4], ds[0]["image"][:4])
