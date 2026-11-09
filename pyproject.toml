@@ -104,6 +104,7 @@ addopts = "-ra --strict-markers"
 markers = [
     "gpu: needs a CUDA GPU (run with `make test-gpu`)",
     "data: needs the SpaceNet 6 sample under ~/geo-data/sample",
+    "db: needs a PostGIS database in GEOINFER_TEST_DB_URL",
 ]
 
 [tool.coverage.run]
