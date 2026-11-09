@@ -78,3 +78,26 @@ Val pixel IoU (raw) by look direction of the tile (353 / 284 tiles):
   on 3a68fd0, which only widened the threshold sweep).
 - Loader-bound: SAR and fused epochs (~100-190 s) are dominated by the per-sample Lee
   filter on a busy CPU; the GPU step itself is 69 ms per batch of 16.
+
+## E3. S1 stitching with the trained optical model on D4 (2026-11-09)
+
+**Setup:** `make s1-optical` (`scripts/s1_stitching.py --model run`): the E2 optical
+model (`models/s3/optical`, threshold 0.55 from its `eval.json`) on the D4 optical mosaic
+(held-out val tiles, 2621 x 15451 px), T 512, O 64 for crop / Hann / Tukey; all
+strategies scored on the union of the O 0 and O 64 seam lines; seam score skips pixels
+within 4 px of strip joins. Laptop GTX 1650, fp32.
+
+| Strategy | Scene IoU | Border-band IoU | Seam score | Object F1 | Tile + stitch |
+|---|---|---|---|---|---|
+| naive (O 0) | 0.698 | 0.704 | 2.79 | 0.502 | 15 s |
+| crop | 0.701 | 0.709 | 1.48 | 0.509 | 19 s |
+| Hann | 0.701 | 0.709 | 0.99 | 0.510 | 16 s |
+| Tukey | 0.701 | 0.709 | 0.98 | 0.509 | 16 s |
+
+**Reading:** with a real network the accuracy gain from overlap is small (+0.005
+border-band IoU, +0.008 object F1): the U-Net degrades little at tile edges, much less
+than the synthetic edge-defect model of the dry run (`s1_d4_synthetic`). The visible
+effect is the seam score: naive pasting leaves hard steps (2.79), crop halves them
+(1.48), Hann and Tukey blending removes them (about 1.0 = no visible seams);
+`docs/figures/s1_d4_optical.png` shows a building cut at a tile corner. Blending costs
+no accuracy and no measurable time, so Hann (or Tukey) stays the default.

@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "scene": "d4 2621 x 15451 px",
+    "model": "optical",
+    "tile": 512,
+    "overlap": 64,
+    "seam_lines": {
+      "rows": 128,
+      "cols": 20
+    },
+    "border_band_px": 32,
+    "strip_join_exclude_px": 4,
+    "synthetic": null,
+    "run_dir": "models/s3/optical",
+    "threshold": 0.55,
+    "note": "trained optical run on D4 optical (held-out val tiles)"
+  },
+  "results": {
+    "naive": {
+      "overlap": 0,
+      "tiles": 170,
+      "scene_iou": 0.698,
+      "scene_f1": 0.8222,
+      "border_band_iou": 0.7035,
+      "seam_score": 2.793,
+      "object_f1": 0.5018,
+      "tile_and_stitch_s": 15.4
+    },
+    "crop": {
+      "overlap": 64,
+      "tiles": 204,
+      "scene_iou": 0.701,
+      "scene_f1": 0.8242,
+      "border_band_iou": 0.709,
+      "seam_score": 1.478,
+      "object_f1": 0.5087,
+      "tile_and_stitch_s": 18.8
+    },
+    "hann": {
+      "overlap": 64,
+      "tiles": 204,
+      "scene_iou": 0.7009,
+      "scene_f1": 0.8241,
+      "border_band_iou": 0.7089,
+      "seam_score": 0.985,
+      "object_f1": 0.51,
+      "tile_and_stitch_s": 15.6
+    },
+    "tukey": {
+      "overlap": 64,
+      "tiles": 204,
+      "scene_iou": 0.7009,
+      "scene_f1": 0.8241,
+      "border_band_iou": 0.7089,
+      "seam_score": 0.982,
+      "object_f1": 0.509,
+      "tile_and_stitch_s": 16.3
+    }
+  }
+}

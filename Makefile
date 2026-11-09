@@ -4,7 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 CFG ?= configs/train_fused.yaml
 
-.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 otsu d4-quicklook postprocess-check figures-nb masks weights overfit \
+.PHONY: help setup setup-ci check lint fmt types test test-gpu test-data cov env gate0 disk cog splits subset stats strip-stats coreg tile-check d4 vectorize s1 s1-optical otsu d4-quicklook postprocess-check figures-nb masks weights overfit \
         train export serve bench bundle figures clean
 
 help:  ## list targets
@@ -71,6 +71,9 @@ vectorize:  ## mask COG -> GeoJSON: make vectorize MASK=m.tif OUT=b.geojson [NAT
 s1:  ## S1 stitching study on D4 (synthetic edge-defect model until Phase 2)
 	uv run python scripts/s1_stitching.py
 
+s1-optical:  ## S1 on D4 with the trained optical model (needs dvc pull models/s3)
+	uv run python scripts/s1_stitching.py --model run --run-dir models/s3/optical
+
 otsu:  ## classical SAR baseline on D4 (Otsu on dB, per scene / per strip, Lee arms)
 	uv run python scripts/otsu_baseline.py
 
@@ -99,7 +102,7 @@ figures-nb:  ## run notebooks/02_dip_figures.ipynb headless (S2 figures); output
 	uv run --group notebook jupyter nbconvert --to notebook --execute --stdout \
 		--ExecutePreprocessor.timeout=1800 notebooks/02_dip_figures.ipynb > /dev/null
 
-figures: gate0 splits coreg d4-quicklook postprocess-check s1 otsu figures-nb  ## rebuild every report figure (~7 min; needs data, stats, D4)
+figures: gate0 splits coreg d4-quicklook postprocess-check s1 s1-optical otsu figures-nb  ## rebuild every report figure (~7 min; needs data, stats, D4)
 
 train:  ## train one model; CFG is the config, SET the overrides (see train.py --set)
 	uv run python -m geoinfer.train.train --config $(CFG) $(if $(SET),--set $(SET))
