@@ -1,0 +1,12 @@
+# Offline service (plan section 3). Paths are inside the containers; GEOINFER_* environment
+# variables override them (tests, local runs). The database URL comes only from
+# GEOINFER_DB_URL (no credentials in the repo).
+inbox: /data/inbox                  # scenes are registered from here (file drop, rule 4)
+outputs: /data/outputs              # <job_id>/mask.tif and buildings.geojson
+models_dir: /models                 # ONNX registry inside the image / volume (rule 3)
+readiness_max_heartbeat_age_s: 10   # /readyz needs a worker heartbeat younger than this
+tasks: [segment_buildings]
+default_models:                     # models.id served per sensor mode (Phase 3 decision 2)
+  optical: unet_r34_optical_clouds_v1
+  sar: unet_r34_sar_lee7_v1
+  fused: unet_r34_fused_clouds_v1
