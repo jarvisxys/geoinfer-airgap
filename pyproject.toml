@@ -34,6 +34,11 @@ export = [
     "onnx>=1.20",
     "onnxruntime-gpu==1.31.1",
 ]
+# Service worker image: ONNX Runtime with the CUDA 13 / cuDNN 9 wheels it preloads
+# (no system CUDA toolkit, no torch).
+worker = [
+    "onnxruntime-gpu[cuda,cudnn]==1.31.1",
+]
 # Offline REST service (Phase 3).
 serve = [
     "fastapi>=0.162,<0.163",

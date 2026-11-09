@@ -1,0 +1,7 @@
+# Air-gap overlay (plan rule 1): no container has any network but the internal one, and no
+# port is published. Talk to the API from inside the network (scripts/airgap_test.sh).
+#   docker compose -f docker/compose.yaml -f docker/compose.airgap.yaml up -d --wait
+services:
+  api:
+    networks: !override [backend]
+    ports: !reset []

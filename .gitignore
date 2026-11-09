@@ -13,6 +13,7 @@ htmlcov/
 # Secrets
 .env
 .env.*
+!.env.example
 
 # Data and models never go in Git (use DVC; see docs/setup.md)
 /data/raw/

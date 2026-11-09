@@ -1,6 +1,6 @@
 outs:
-- md5: 4ff56d2e46703453dc04b3b67e3c08ff.dir
-  size: 195906298
-  nfiles: 10
+- md5: 1657915756f6795737e4f164dd42afc6.dir
+  size: 391471531
+  nfiles: 14
   hash: md5
   path: s3_clouds

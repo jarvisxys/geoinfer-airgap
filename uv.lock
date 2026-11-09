@@ -449,6 +449,9 @@ serve = [
     { name = "sqlalchemy" },
     { name = "uvicorn" },
 ]
+worker = [
+    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"] },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -476,6 +479,7 @@ requires-dist = [
     { name = "nvidia-ml-py", marker = "extra == 'serve'", specifier = ">=13" },
     { name = "onnx", marker = "extra == 'export'", specifier = ">=1.20" },
     { name = "onnxruntime-gpu", marker = "extra == 'export'", specifier = "==1.31.1" },
+    { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], marker = "extra == 'worker'", specifier = "==1.31.1" },
     { name = "opencv-python-headless", specifier = ">=4.12,<5" },
     { name = "prometheus-client", marker = "extra == 'serve'", specifier = ">=0.22" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'serve'", specifier = ">=3.2" },
@@ -491,7 +495,7 @@ requires-dist = [
     { name = "torchvision", marker = "extra == 'ml'", specifier = "==0.29.2" },
     { name = "uvicorn", marker = "extra == 'serve'", specifier = ">=0.54" },
 ]
-provides-extras = ["ml", "export", "serve"]
+provides-extras = ["ml", "export", "worker", "serve"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1246,6 +1250,17 @@ dependencies = [
 wheels = [
     { url = "https://files.pythonhosted.org/packages/22/97/9531b4d9e566cf2a0f04b4b5c26a3bc0ef2e2e0b6bc943a02c0eead98cf7/onnxruntime_gpu-1.31.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:05d548956197b9d01f59b625de740e0d6be3593f874e241a12dc0362650ecdf7", size = 255569273, upload-time = "2026-10-26T19:10:23.625Z" },
     { url = "https://files.pythonhosted.org/packages/7b/dc/0e7674377dd204170a4e077c719ee735a2eea6b7f102aa66873af74cced4/onnxruntime_gpu-1.31.1-cp312-cp312-manylinux_2_34_aarch64.whl", hash = "sha256:a0f1725c5a6d1ef82d63498b5ebc25e2c90c9560e91dc76db9be4a49162d4d33", size = 212341829, upload-time = "2026-10-26T18:51:54.287Z" },
+]
+
+[package.optional-dependencies]
+cuda = [
+    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-runtime" },
+    { name = "nvidia-cufft" },
+    { name = "nvidia-curand" },
+]
+cudnn = [
+    { name = "nvidia-cudnn-cu13" },
 ]
 
 [[package]]

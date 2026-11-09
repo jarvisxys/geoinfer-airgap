@@ -82,6 +82,7 @@ def env(tmp_path: Path, make_tiff: MakeTiff, tiny_onnx: Callable[..., Path]) -> 
             providers=("CPUExecutionProvider",),
             max_aoi_mpx=1.0,
             scratch_dir=tmp_path / "scratch",
+            metrics_port=0,
         ),
     )
     engine = create_engine(URL)
@@ -158,6 +159,12 @@ def test_worker_runs_a_job_end_to_end(env: dict) -> None:
         done = s.execute(text("SELECT jobs_done FROM workers WHERE id = 'w-test'")).scalar_one()
         assert done == 1
     assert w.process_one() is False  # queue empty
+    from prometheus_client import generate_latest
+
+    m = generate_latest(w.metrics.registry).decode()
+    assert 'geoinfer_worker_jobs_total{status="ready"} 1.0' in m
+    assert "geoinfer_worker_tiles_total" in m
+    assert 'geoinfer_worker_stage_seconds_total{stage="infer"}' in m
 
 
 def test_worker_fails_job_on_model_hash_mismatch(env: dict) -> None:
@@ -168,6 +175,7 @@ def test_worker_fails_job_on_model_hash_mismatch(env: dict) -> None:
     j = c.get(f"/v1/jobs/{jid}").json()
     assert j["status"] == "failed"
     assert "sha256" in j["error"]
+    assert w.metrics.jobs.labels("failed")._value.get() == 1
     with Session(env["engine"]) as s:
         assert s.scalar(select(func.count()).select_from(Building)) == 0
 
