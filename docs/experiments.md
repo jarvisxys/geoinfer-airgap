@@ -102,6 +102,36 @@ effect is the seam score: naive pasting leaves hard steps (2.79), crop halves th
 `docs/figures/s1_d4_optical.png` shows a building cut at a tile corner. Blending costs
 no accuracy and no measurable time, so Hann (or Tukey) stays the default.
 
+## E4. S2 normalisation arms (2026-11-09)
+
+**Setup:** as E2 (server GPU 1, full train split, tune for model selection, 30 epochs,
+batch 16), five runs in parallel from `scripts/server/remote_s2.sh` with the
+Lee-filtered SAR cache (SAR epochs ~65 s instead of 100-190 s in E2); the E2 runs
+`optical` (global) and `sar` (Lee 7, global) are the reference arms. One training run
+per arm. Started on commit 9daef09 (`run.json` shows 100c767: the commit was read at the
+end of training after newer code was pushed; fixed, it is now read at the start).
+Checkpoints: `models/s2/` (DVC).
+
+| Arm | Tune IoU | Thr | Val pixel IoU raw / clean | Val pixel F1 | Val object F1 | IoU dir 0 / 1 |
+|---|---|---|---|---|---|---|
+| optical, per-tile min-max | 0.775 | 0.40 | 0.681 / 0.678 | 0.810 | 0.513 | 0.633 / 0.706 |
+| optical, global 2-98 % (E2) | 0.773 | 0.55 | 0.682 / 0.682 | 0.811 | 0.508 | 0.610 / 0.721 |
+| SAR, linear | 0.441 | 0.15 | 0.403 / 0.384 | 0.575 | 0.148 | 0.305 / 0.458 |
+| SAR, dB | 0.559 | 0.20 | 0.470 / 0.453 | 0.639 | 0.257 | 0.385 / 0.515 |
+| SAR, dB + Lee 5 | 0.543 | 0.30 | 0.462 / 0.452 | 0.632 | 0.227 | 0.350 / 0.527 |
+| SAR, dB + Lee 7 (E2) | 0.551 | 0.20 | 0.479 / 0.466 | 0.648 | 0.244 | 0.372 / 0.536 |
+| SAR, dB + Lee 7 per strip (D4) | 0.574 | 0.25 | 0.472 / 0.463 | 0.642 | 0.261 | 0.379 / 0.522 |
+
+**Reading:**
+- The clear S2 effect is the dB conversion: +0.067 val pixel IoU and +0.11 object F1
+  over raw linear intensity, whose z-scores are dominated by a heavy bright tail.
+- Among the dB arms the differences are about 0.01 or less and not consistent: Lee 7
+  global has the best pixel IoU, per-strip normalisation the best object F1 and by far
+  the best tune IoU (0.574) but not the best val IoU. With one run per arm these
+  differences are within run-to-run noise; ranking them needs 2-3 seeds per arm.
+- Optical: per-tile min-max matches the global stretch on tile IoU (0.681 vs 0.682); its
+  cost is visible as seams when tiles are stitched (S2 figure: seam score 2.60 vs 0.92),
+  not in per-tile scores.
 ## E5. ONNX export and parity (2026-11-09)
 
 `make export` (`scripts/export_run.py`): each S3 model's `best.pt` exported with opset 18

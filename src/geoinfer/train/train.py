@@ -220,6 +220,7 @@ def train(
 ) -> dict[str, Any]:
     """Train one model; returns the content written to ``run.json``."""
     t_start = time.perf_counter()
+    commit = _git_commit()  # at start: code pushed later must not relabel this run
     seed = int(cfg.get("seed", 0))
     torch.manual_seed(seed)
     d, o, lc = cfg["data"], cfg["optim"], cfg["loss"]
@@ -357,7 +358,7 @@ def train(
     info: dict[str, Any] = {
         "run_name": cfg["run_name"],
         "config": copy.deepcopy(dict(cfg)),
-        "git_commit": _git_commit(),
+        "git_commit": commit,
         "torch": torch.__version__,
         "device": torch.cuda.get_device_name(0) if cuda else device,
         "n_train": len(train_ds),
