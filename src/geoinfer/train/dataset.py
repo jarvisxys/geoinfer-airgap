@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -270,6 +270,9 @@ class SN6Tiles:
         Folder for cached Lee-filtered SAR (arms with a Lee filter only); None filters
         on the fly. The filter always uses the SAR valid mask, so SAR and fused models
         share one cache.
+    optical_corrupt
+        Optional ``f(optical, valid, tile_id) -> optical`` applied to raw optical before
+        normalisation (synthetic clouds for the S3 robustness curve).
     """
 
     def __init__(
@@ -286,6 +289,8 @@ class SN6Tiles:
         seed: int,
         vary_by_epoch: bool = True,
         sar_cache: Path | None = None,
+        optical_corrupt: Callable[[npt.NDArray[Any], BoolArray, str], npt.NDArray[Any]]
+        | None = None,
     ) -> None:
         if modality not in MODALITIES:
             raise ValueError(f"modality must be one of {MODALITIES}, got {modality!r}")
@@ -298,6 +303,7 @@ class SN6Tiles:
         self.align_orientation, self.seed = align_orientation, seed
         self.vary_by_epoch = vary_by_epoch
         self.sar_cache = sar_cache
+        self.optical_corrupt = optical_corrupt
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -313,6 +319,8 @@ class SN6Tiles:
         if self.modality in ("optical", "fused"):
             opt = _read(rec.optical)
             ov = np.any(opt != 0, axis=0)
+            if self.optical_corrupt is not None:
+                opt = self.optical_corrupt(opt, ov, rec.tile_id)
             valid = ov
         if self.modality in ("sar", "fused"):
             sar = _read(rec.sar)

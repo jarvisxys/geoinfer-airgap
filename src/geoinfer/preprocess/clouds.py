@@ -8,6 +8,7 @@ exactly, with a soft edge, and alpha-blended towards a bright cloud value per ba
 
 from __future__ import annotations
 
+import zlib
 from collections.abc import Sequence
 from typing import Any
 
@@ -104,3 +105,43 @@ def apply_clouds(
     out = out.astype(x.dtype)
     out[:, ~valid] = x[:, ~valid]
     return out
+
+
+class TileClouds:
+    """Deterministic synthetic clouds per tile, for the S3 robustness curve.
+
+    Each tile gets its own cloud field (seed = ``seed`` combined with a CRC of the tile
+    ID), so every model is tested on identical clouds and a re-run reproduces them.
+
+    Parameters
+    ----------
+    coverage
+        Target cloud fraction in [0, 1); 0 leaves tiles unchanged.
+    beta, softness
+        Fractal-noise slope and cloud-edge width (see :func:`cloud_mask`).
+    brightness
+        Cloud value per band (train-split p98 white point by default in the config).
+    seed
+        Base seed.
+    """
+
+    def __init__(
+        self,
+        coverage: float,
+        beta: float,
+        softness: float,
+        brightness: Sequence[float],
+        seed: int,
+    ) -> None:
+        if not 0.0 <= coverage < 1.0:
+            raise ValueError(f"coverage must be in [0, 1), got {coverage}")
+        self.coverage, self.beta, self.softness = coverage, beta, softness
+        self.brightness, self.seed = list(brightness), seed
+
+    def __call__(self, x: npt.NDArray[Any], valid: BoolArray, tile_id: str) -> npt.NDArray[Any]:
+        """Cloudy copy of ``(bands, h, w)`` optical ``x``."""
+        if self.coverage == 0.0:
+            return x
+        tile_seed = (self.seed * 1_000_003 + zlib.crc32(tile_id.encode())) % 2**32
+        alpha = cloud_mask(x.shape[1:], self.coverage, self.beta, self.softness, tile_seed)
+        return apply_clouds(x, valid, alpha, self.brightness)
