@@ -1,0 +1,6 @@
+outs:
+- md5: 51e87d178036eaff06915beae6e17ab3.dir
+  size: 1273058563
+  nfiles: 65
+  hash: md5
+  path: s2

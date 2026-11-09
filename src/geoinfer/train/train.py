@@ -47,6 +47,7 @@ SCHEMA: dict[str, set[str] | None] = {
         "vary_by_epoch",
         "workers",
         "sar_cache",
+        "cloud_aug",
     },
     "norm": {"optical", "sar"},
     "model": {"pretrained"},
@@ -219,6 +220,7 @@ def train(
 ) -> dict[str, Any]:
     """Train one model; returns the content written to ``run.json``."""
     t_start = time.perf_counter()
+    commit = _git_commit()  # at start: code pushed later must not relabel this run
     seed = int(cfg.get("seed", 0))
     torch.manual_seed(seed)
     d, o, lc = cfg["data"], cfg["optim"], cfg["loss"]
@@ -251,6 +253,7 @@ def train(
         train=True,
         hflip=bool(d["hflip"]),
         vary_by_epoch=bool(d["vary_by_epoch"]),
+        cloud_aug=d.get("cloud_aug"),
         **common,
     )
     if cfg["eval"].get("target", "whole_tiles") == "train_crops":
@@ -355,7 +358,7 @@ def train(
     info: dict[str, Any] = {
         "run_name": cfg["run_name"],
         "config": copy.deepcopy(dict(cfg)),
-        "git_commit": _git_commit(),
+        "git_commit": commit,
         "torch": torch.__version__,
         "device": torch.cuda.get_device_name(0) if cuda else device,
         "n_train": len(train_ds),

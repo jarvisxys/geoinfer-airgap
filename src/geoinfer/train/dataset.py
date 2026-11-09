@@ -31,6 +31,7 @@ from rasterio.windows import Window
 
 from geoinfer.io.config import IOConfig
 from geoinfer.io.raster import RasterInfo, RasterReader, RasterWriter, inspect_raster
+from geoinfer.preprocess.clouds import apply_clouds, cloud_mask
 from geoinfer.preprocess.normalize import (
     apply_sar_arm,
     minmax_per_tile,
@@ -273,6 +274,11 @@ class SN6Tiles:
     optical_corrupt
         Optional ``f(optical, valid, tile_id) -> optical`` applied to raw optical before
         normalisation (synthetic clouds for the S3 robustness curve).
+    cloud_aug
+        Training-time cloud augmentation ``{p, max_coverage, beta, softness}``: with
+        probability ``p`` a sample's raw optical gets clouds of uniform random coverage
+        in ``[0, max_coverage)`` (train-split p98 white point). Drawn from its own random
+        stream, so crops and flips are the same as without it.
     """
 
     def __init__(
@@ -291,6 +297,7 @@ class SN6Tiles:
         sar_cache: Path | None = None,
         optical_corrupt: Callable[[npt.NDArray[Any], BoolArray, str], npt.NDArray[Any]]
         | None = None,
+        cloud_aug: Mapping[str, float] | None = None,
     ) -> None:
         if modality not in MODALITIES:
             raise ValueError(f"modality must be one of {MODALITIES}, got {modality!r}")
@@ -304,6 +311,9 @@ class SN6Tiles:
         self.vary_by_epoch = vary_by_epoch
         self.sar_cache = sar_cache
         self.optical_corrupt = optical_corrupt
+        if cloud_aug is not None and modality == "sar":
+            raise ValueError("cloud augmentation needs optical input (optical or fused)")
+        self.cloud_aug = dict(cloud_aug) if cloud_aug is not None else None
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -313,14 +323,36 @@ class SN6Tiles:
         """Change the random draws (crops, flips) for a new epoch."""
         self.epoch = epoch
 
+    def _clouds(
+        self, opt: npt.NDArray[Any], valid: BoolArray, i: int
+    ) -> tuple[npt.NDArray[Any], float]:
+        """Training cloud augmentation from its own random stream (see class docstring)."""
+        c = self.cloud_aug
+        assert c is not None
+        rng = np.random.default_rng([self.seed, self.epoch if self.vary_by_epoch else 0, i, 7])
+        if rng.random() >= float(c["p"]):
+            return opt, 0.0
+        coverage = float(rng.uniform(0.0, float(c["max_coverage"])))
+        alpha = cloud_mask(
+            opt.shape[1:],
+            coverage,
+            float(c["beta"]),
+            float(c["softness"]),
+            int(rng.integers(0, 2**31)),
+        )
+        return apply_clouds(opt, valid, alpha, self.norm.opt_stats["p_hi"]), coverage
+
     def __getitem__(self, i: int) -> dict[str, Any]:
         rec = self.records[i]
         parts, valid = [], None
+        coverage = 0.0
         if self.modality in ("optical", "fused"):
             opt = _read(rec.optical)
             ov = np.any(opt != 0, axis=0)
             if self.optical_corrupt is not None:
                 opt = self.optical_corrupt(opt, ov, rec.tile_id)
+            if self.train and self.cloud_aug is not None:
+                opt, coverage = self._clouds(opt, ov, i)
             valid = ov
         if self.modality in ("sar", "fused"):
             sar = _read(rec.sar)
@@ -374,4 +406,5 @@ class SN6Tiles:
             "size": size,
             "hflipped": hflipped,
             "flipped_ns": flipped,
+            "cloud_coverage": coverage,
         }

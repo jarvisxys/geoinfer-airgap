@@ -102,6 +102,36 @@ effect is the seam score: naive pasting leaves hard steps (2.79), crop halves th
 `docs/figures/s1_d4_optical.png` shows a building cut at a tile corner. Blending costs
 no accuracy and no measurable time, so Hann (or Tukey) stays the default.
 
+## E4. S2 normalisation arms (2026-11-09)
+
+**Setup:** as E2 (server GPU 1, full train split, tune for model selection, 30 epochs,
+batch 16), five runs in parallel from `scripts/server/remote_s2.sh` with the
+Lee-filtered SAR cache (SAR epochs ~65 s instead of 100-190 s in E2); the E2 runs
+`optical` (global) and `sar` (Lee 7, global) are the reference arms. One training run
+per arm. Started on commit 9daef09 (`run.json` shows 100c767: the commit was read at the
+end of training after newer code was pushed; fixed, it is now read at the start).
+Checkpoints: `models/s2/` (DVC).
+
+| Arm | Tune IoU | Thr | Val pixel IoU raw / clean | Val pixel F1 | Val object F1 | IoU dir 0 / 1 |
+|---|---|---|---|---|---|---|
+| optical, per-tile min-max | 0.775 | 0.40 | 0.681 / 0.678 | 0.810 | 0.513 | 0.633 / 0.706 |
+| optical, global 2-98 % (E2) | 0.773 | 0.55 | 0.682 / 0.682 | 0.811 | 0.508 | 0.610 / 0.721 |
+| SAR, linear | 0.441 | 0.15 | 0.403 / 0.384 | 0.575 | 0.148 | 0.305 / 0.458 |
+| SAR, dB | 0.559 | 0.20 | 0.470 / 0.453 | 0.639 | 0.257 | 0.385 / 0.515 |
+| SAR, dB + Lee 5 | 0.543 | 0.30 | 0.462 / 0.452 | 0.632 | 0.227 | 0.350 / 0.527 |
+| SAR, dB + Lee 7 (E2) | 0.551 | 0.20 | 0.479 / 0.466 | 0.648 | 0.244 | 0.372 / 0.536 |
+| SAR, dB + Lee 7 per strip (D4) | 0.574 | 0.25 | 0.472 / 0.463 | 0.642 | 0.261 | 0.379 / 0.522 |
+
+**Reading:**
+- The clear S2 effect is the dB conversion: +0.067 val pixel IoU and +0.11 object F1
+  over raw linear intensity, whose z-scores are dominated by a heavy bright tail.
+- Among the dB arms the differences are about 0.01 or less and not consistent: Lee 7
+  global has the best pixel IoU, per-strip normalisation the best object F1 and by far
+  the best tune IoU (0.574) but not the best val IoU. With one run per arm these
+  differences are within run-to-run noise; ranking them needs 2-3 seeds per arm.
+- Optical: per-tile min-max matches the global stretch on tile IoU (0.681 vs 0.682); its
+  cost is visible as seams when tiles are stitched (S2 figure: seam score 2.60 vs 0.92),
+  not in per-tile scores.
 ## E5. ONNX export and parity (2026-11-09)
 
 `make export` (`scripts/export_run.py`): each S3 model's `best.pt` exported with opset 18
@@ -116,3 +146,62 @@ random inputs (batch 1 at 512 x 512 and batch 3 at 256 x 384), GTX 1650 / CUDA E
 | fused | 93.3 MiB | 2.4e-5 | 2.4e-7 |
 
 All within the 1e-3 tolerance (`configs/export.yaml`); details in `export.json` per run.
+
+## E6. S3 robustness to clouds (2026-11-09)
+
+**Setup:** synthetic clouds (`preprocess.clouds`: fractal noise, beta 2.2, soft edges,
+train-split p98 white point, per-tile seeds so every model sees identical clouds) blended
+into the raw optical bands of the val split at 0-80 % cover
+(`scripts/cloud_curve.py`, `remote_cloud.sh`); each model at its tuned threshold. Clean-
+trained models = E2. Cloud-trained models: same configs plus
+`data.cloud_aug = {p: 0.5, max_coverage: 0.8}` (half the training samples get clouds of
+uniform random cover in [0, 0.8)), commit 100c767, `models/s3_clouds/` (DVC).
+
+| Val pixel IoU at cloud cover | 0 % | 20 % | 40 % | 60 % | 80 % |
+|---|---|---|---|---|---|
+| optical, clean-trained | 0.682 | 0.308 | 0.130 | 0.042 | 0.008 |
+| fused, clean-trained | 0.688 | 0.382 | 0.189 | 0.078 | 0.025 |
+| SAR only | 0.479 | 0.479 | 0.479 | 0.479 | 0.479 |
+| optical, cloud-trained | 0.686 | 0.654 | 0.623 | 0.578 | 0.502 |
+| fused, cloud-trained | 0.680 | 0.644 | 0.614 | 0.577 | **0.527** |
+
+Cloud-trained models on clean val (threshold from tune): optical 0.686 pixel IoU / 0.505
+object F1 (threshold 0.50), fused 0.680 / 0.507 (0.40).
+
+**Reading** (`docs/figures/s3_clouds_all.png`):
+- Trained without clouds, both optical models collapse: at 20 % cover they fall below SAR
+  alone, and the fused model does not fall back on its SAR input.
+- Cloud augmentation is what buys robustness: at 40 % cover IoU goes from 0.13-0.19 to
+  0.61-0.62, and clean accuracy is unchanged (0.686 / 0.680 vs 0.682 / 0.688).
+- With cloud training, optical and fused stay within 0.01 up to 60 % cover; at 80 % the
+  fused model leads (0.527 vs 0.502) and is the only model above SAR alone. SAR's value
+  in fusion is as a backstop under heavy cloud, not on clear or lightly clouded images.
+
+## E7. S2 SAR arms over three seeds (2026-11-09)
+
+**Setup:** seeds 1 and 2 of the four SAR dB arms (`scripts/server/remote_s2_seeds.sh`,
+commit f57cf22, 8 runs in parallel, 10 loader workers each), seed 0 = the E4 runs (Lee 7
+global = E2 `sar`). Same evaluation as E4. Runs: `models/s2/*_seed{1,2}` (DVC).
+
+| SAR arm | Val pixel IoU (mean +- sd) | Seeds | Pixel F1 | Object F1 (mean +- sd) |
+|---|---|---|---|---|
+| dB | 0.478 +- 0.009 | 0.470 / 0.488 / 0.477 | 0.647 | 0.256 +- 0.002 |
+| dB + Lee 5 | 0.469 +- 0.007 | 0.462 / 0.475 / 0.471 | 0.639 | 0.232 +- 0.004 |
+| dB + Lee 7 | 0.474 +- 0.004 | 0.479 / 0.471 / 0.472 | 0.643 | 0.248 +- 0.007 |
+| dB + Lee 7 per strip | **0.482 +- 0.009** | 0.472 / 0.483 / 0.490 | **0.650** | **0.264 +- 0.005** |
+
+(raw linear intensity, one seed: 0.403 pixel IoU, 0.148 object F1)
+
+**Reading:**
+- Pixel IoU does not separate the dB arms: the spread across arms (0.013) is about one to
+  two seed standard deviations.
+- Object F1 does: Lee 5 is clearly worst (0.024 below plain dB, more than 4 sd), and the
+  per-strip arm is the best (+0.016 over the same Lee 7 filter with global statistics,
+  about 2.5 sd).
+- The Lee filter does not help the CNN: plain dB matches or beats Lee 5 and Lee 7; the
+  network learns its own speckle smoothing, while the Lee filter blurs building edges
+  (edge-preservation index 0.32-0.36, `s2_sar_patch.png`) and that costs whole buildings.
+  What helps is per-strip normalisation (decision D4).
+- S2 conclusion for SAR: dB conversion is the large, certain gain (+0.07 IoU, +0.11
+  object F1 over linear); per-strip normalisation adds a small object-level gain; speckle
+  filtering before a CNN is not worth it here.
