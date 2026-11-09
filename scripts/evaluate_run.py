@@ -34,7 +34,7 @@ from geoinfer.train.evaluate import (
 )
 from geoinfer.train.train import CHANNELS, OPTICAL_DIR, SAR_DIR, TILE_REGEX, resolve_amp
 
-THRESHOLDS = [round(t, 2) for t in np.arange(0.2, 0.801, 0.05)]
+THRESHOLDS = [round(t, 2) for t in np.arange(0.05, 0.951, 0.05)]
 
 
 def main() -> None:
