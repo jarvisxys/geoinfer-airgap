@@ -25,7 +25,7 @@ from geoinfer.eval.metrics import pixel_scores
 from geoinfer.io.config import load_io_config
 from geoinfer.models.unet import build_unet
 from geoinfer.postprocess.config import load_postprocess_config
-from geoinfer.train.dataset import Normalizer, SN6Tiles, index_tiles
+from geoinfer.train.dataset import Normalizer, SN6Tiles, index_tiles, resolve_sar_cache
 from geoinfer.train.evaluate import (
     best_threshold,
     predict_tiles,
@@ -78,6 +78,7 @@ def main() -> None:
             hflip=False,
             align_orientation=bool(cfg["data"]["align_orientation"]),
             seed=int(cfg.get("seed", 0)),
+            sar_cache=resolve_sar_cache(root, cfg["data"].get("sar_cache")),
         )
 
     arch = mcfg.get("unet", {})

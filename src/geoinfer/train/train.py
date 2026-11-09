@@ -25,7 +25,7 @@ import yaml
 from geoinfer.eval.metrics import PixelCounts, pixel_scores
 from geoinfer.io.config import IOConfig, load_io_config
 from geoinfer.models.unet import build_unet, load_encoder_weights
-from geoinfer.train.dataset import Normalizer, SN6Tiles, index_tiles
+from geoinfer.train.dataset import Normalizer, SN6Tiles, index_tiles, resolve_sar_cache
 
 SAR_DIR, OPTICAL_DIR = "SAR-Intensity", "PS-RGBNIR"
 TILE_REGEX = r"_(\d{14}_\d{14}_tile_\d+)\.tif$"
@@ -46,6 +46,7 @@ SCHEMA: dict[str, set[str] | None] = {
         "align_orientation",
         "vary_by_epoch",
         "workers",
+        "sar_cache",
     },
     "norm": {"optical", "sar"},
     "model": {"pretrained"},
@@ -242,6 +243,7 @@ def train(
         "io_cfg": io_cfg,
         "align_orientation": bool(d["align_orientation"]),
         "seed": seed,
+        "sar_cache": resolve_sar_cache(root, d.get("sar_cache")),
     }
     train_ds = SN6Tiles(
         records(d["train_list"]),

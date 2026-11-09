@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -176,11 +177,63 @@ class Normalizer:
         stretched = percentile_stretch(x, valid, s["p_lo"], s["p_hi"])
         return zscore(stretched, valid, s["mean"], s["std"])
 
-    def sar(self, db: npt.NDArray[Any], valid: BoolArray, strip: str | None) -> FloatArray:
-        """Normalise ``(4, h, w)`` SAR-Intensity dB with the configured arm."""
-        chain = sar_chain(db, valid, self.arm.get("lee"), self.enl)
+    @property
+    def lee(self) -> int | None:
+        """Lee window of the SAR arm (None: no speckle filter)."""
+        lee = self.arm.get("lee")
+        return None if lee is None else int(lee)
+
+    def sar_chain(self, db: npt.NDArray[Any], valid: BoolArray) -> FloatArray:
+        """The arm's speckle filter: dB in, (Lee-filtered) dB out."""
+        return sar_chain(db, valid, self.lee, self.enl)
+
+    def sar_from_chain(
+        self, chain: npt.NDArray[Any], valid: BoolArray, strip: str | None
+    ) -> FloatArray:
+        """Clip and z-score filtered dB with the arm's global or per-strip statistics."""
         stats, _ = select_arm_stats(strip, self.global_sar, self.strip_sar)
         return apply_sar_arm(chain, valid, stats, self.arm["domain"], bool(self.arm["clip"]))
+
+    def sar(self, db: npt.NDArray[Any], valid: BoolArray, strip: str | None) -> FloatArray:
+        """Normalise ``(4, h, w)`` SAR-Intensity dB with the configured arm."""
+        return self.sar_from_chain(self.sar_chain(db, valid), valid, strip)
+
+
+def resolve_sar_cache(root: Path, value: str | None) -> Path | None:
+    """``data.sar_cache`` from a training config: None, absolute, or relative to root."""
+    if value is None:
+        return None
+    return Path(value) if Path(value).is_absolute() else Path(root) / value
+
+
+def chain_cache_path(cache_dir: Path, tile_id: str, lee: int, enl: float) -> Path:
+    """Cache file of a tile's Lee-filtered dB (the key holds the window and the ENL)."""
+    return Path(cache_dir) / f"{tile_id}.lee{lee}.enl{enl:.3f}.npy"
+
+
+def ensure_sar_chain(
+    tile_id: str,
+    db: npt.NDArray[Any],
+    valid: BoolArray,
+    lee: int,
+    enl: float,
+    cache_dir: Path,
+) -> FloatArray:
+    """Lee-filtered dB of a tile from the cache, computed and stored on first use.
+
+    Files are float32 ``.npy`` (identical to filtering on the fly), written to a temporary
+    name and renamed, so parallel loader workers never read a partial file.
+    """
+    path = chain_cache_path(cache_dir, tile_id, lee, enl)
+    if path.exists():
+        return np.asarray(np.load(path), dtype=np.float32)
+    out = np.asarray(sar_chain(db, valid, lee, enl), dtype=np.float32)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    with tmp.open("wb") as f:
+        np.save(f, out)
+    os.replace(tmp, path)
+    return out
 
 
 def _read(path: Path) -> npt.NDArray[Any]:
@@ -213,6 +266,10 @@ class SN6Tiles:
         Base seed; draws depend on ``(seed, epoch, index)`` only.
     vary_by_epoch
         False keeps every tile's crop and flip fixed across epochs (overfit checks).
+    sar_cache
+        Folder for cached Lee-filtered SAR (arms with a Lee filter only); None filters
+        on the fly. The filter always uses the SAR valid mask, so SAR and fused models
+        share one cache.
     """
 
     def __init__(
@@ -228,6 +285,7 @@ class SN6Tiles:
         align_orientation: bool,
         seed: int,
         vary_by_epoch: bool = True,
+        sar_cache: Path | None = None,
     ) -> None:
         if modality not in MODALITIES:
             raise ValueError(f"modality must be one of {MODALITIES}, got {modality!r}")
@@ -239,6 +297,7 @@ class SN6Tiles:
         self.crop, self.train, self.hflip = crop, train, hflip
         self.align_orientation, self.seed = align_orientation, seed
         self.vary_by_epoch = vary_by_epoch
+        self.sar_cache = sar_cache
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -263,7 +322,12 @@ class SN6Tiles:
         if self.modality in ("optical", "fused"):
             parts.append(self.norm.optical(opt, valid))
         if self.modality in ("sar", "fused"):
-            parts.append(self.norm.sar(sar, valid, rec.strip))
+            lee = self.norm.lee
+            if self.sar_cache is not None and lee is not None:
+                chain = ensure_sar_chain(rec.tile_id, sar, sv, lee, self.norm.enl, self.sar_cache)
+            else:
+                chain = self.norm.sar_chain(sar, sv)
+            parts.append(self.norm.sar_from_chain(chain, valid, rec.strip))
         image = np.concatenate(parts, axis=0)
         mask = _read(ensure_mask(rec, self.masks_dir, self.io_cfg))[0]
 
