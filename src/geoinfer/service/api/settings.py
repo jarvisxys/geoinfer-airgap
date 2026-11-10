@@ -14,6 +14,18 @@ DEFAULT_SERVICE_CONFIG = Path("configs/service.yaml")
 
 
 @dataclass(frozen=True)
+class SchedulingSettings:
+    """Tile scheduling (``worker.scheduling``; experiments E2 and E3)."""
+
+    batching: str  # per_job | cross_job
+    queue: str  # fifo | priority (with ageing)
+    ageing_per_s: float  # priority points gained per second waited
+    max_wait_ms: float  # hold a partial batch this long while it can grow
+    max_active_jobs: int  # jobs claimed and in flight at once
+    prefetch_tiles: int  # read-ahead per job (normalised tiles in RAM)
+
+
+@dataclass(frozen=True)
 class WorkerSettings:
     """Worker loop and inference settings (``worker:`` in the service config)."""
 
@@ -25,6 +37,7 @@ class WorkerSettings:
     max_aoi_mpx: float
     scratch_dir: Path
     metrics_port: int
+    scheduling: SchedulingSettings
 
 
 @dataclass(frozen=True)
@@ -55,6 +68,7 @@ def load_settings(path: Path | None = None) -> Settings:
     if not url:
         raise RuntimeError("GEOINFER_DB_URL is not set")
     w = raw["worker"]
+    sc = w["scheduling"]
     return Settings(
         db_url=url,
         inbox=Path(os.environ.get("GEOINFER_INBOX", raw["inbox"])),
@@ -74,5 +88,13 @@ def load_settings(path: Path | None = None) -> Settings:
             max_aoi_mpx=float(w["max_aoi_mpx"]),
             scratch_dir=Path(os.environ.get("GEOINFER_SCRATCH", w["scratch_dir"])),
             metrics_port=int(w["metrics_port"]),
+            scheduling=SchedulingSettings(
+                batching=str(sc["batching"]),
+                queue=str(sc["queue"]),
+                ageing_per_s=float(sc["ageing_per_s"]),
+                max_wait_ms=float(sc["max_wait_ms"]),
+                max_active_jobs=int(sc["max_active_jobs"]),
+                prefetch_tiles=int(sc["prefetch_tiles"]),
+            ),
         ),
     )

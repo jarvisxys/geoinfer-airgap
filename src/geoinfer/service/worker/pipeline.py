@@ -17,7 +17,7 @@ the AOI or without data; same CRS as the scene, transform of the AOI window) and
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -182,6 +182,172 @@ def _scores(polys: list[Polygon], clean: BoolArray, prob: FloatArray, tr: Affine
     return out
 
 
+class SegmentJob:
+    """One job split into steps, so a scheduler can batch its tiles with other jobs'.
+
+    ``tiles()`` yields the job's normalised tiles (reads and normalisation happen here,
+    on the caller's thread); ``add()`` stitches one tile probability, in any order;
+    ``finish()`` cleans, vectorises and writes the outputs. :func:`segment_aoi` runs the
+    three in sequence. Open on construction; use as a context manager or call ``close``.
+
+    Raises
+    ------
+    ValueError
+        If the AOI misses the scene or exceeds ``max_aoi_px``, or a SAR/fused scene has
+        no orientation.
+    """
+
+    def __init__(
+        self,
+        scene: SceneInputs,
+        aoi_wgs84: BaseGeometry,
+        norm: Normalizer,
+        threshold: float,
+        tcfg: TilingConfig,
+        pcfg: PostprocessConfig,
+        io_cfg: IOConfig,
+        out_dir: Path,
+        *,
+        max_aoi_px: int,
+    ) -> None:
+        self.t_start = time.perf_counter()
+        self.scene, self.norm, self.threshold = scene, norm, threshold
+        self.tcfg, self.pcfg, self.io_cfg, self.out_dir = tcfg, pcfg, io_cfg, out_dir
+        self.flip = needs_flip(scene.sensor, scene.orientation)
+        self.timings = dict.fromkeys(("prepare_s", "infer_s", "stitch_s"), 0.0)
+        self.n_tiles = 0
+        self._es = ExitStack()
+        try:
+            self._open(aoi_wgs84, max_aoi_px)
+        except BaseException:
+            self._es.close()
+            raise
+
+    def _open(self, aoi_wgs84: BaseGeometry, max_aoi_px: int) -> None:
+        scene, es = self.scene, self._es
+        self.readers: dict[str, RasterReader] = {}
+        if scene.optical is not None and scene.sensor != "sar":
+            self.readers["optical"] = es.enter_context(RasterReader(scene.optical))
+        if scene.sar is not None and scene.sensor != "optical":
+            self.readers["sar"] = es.enter_context(RasterReader(scene.sar))
+        if not self.readers:
+            raise ValueError(f"no rasters for a {scene.sensor} job")
+        info = self.readers["optical" if "optical" in self.readers else "sar"].info
+        if info.crs is None:
+            raise ValueError(f"{info.path} has no CRS")
+        self.info = info
+        aoi = to_crs(aoi_wgs84, OUT_CRS, info.crs)
+        self.win = aoi_window(aoi, info.transform, info.width, info.height)
+        self.h, self.w = int(self.win.height), int(self.win.width)
+        if self.h * self.w > max_aoi_px:
+            raise ValueError(
+                f"AOI window {self.w} x {self.h} px exceeds the limit of {max_aoi_px} px"
+            )
+        self.transform = window_transform(self.win, info.transform)
+        self.in_aoi = geometry_mask([aoi], (self.h, self.w), self.transform, invert=True)
+        t = self.tcfg
+        self.stitcher = es.enter_context(
+            Stitcher(
+                self.h,
+                self.w,
+                t.tile,
+                t.overlap,
+                t.strategy,
+                memmap_min_px=t.memmap_min_px,
+                scratch_dir=t.scratch_dir,
+            )
+        )
+
+    def specs(self) -> list[TileSpec]:
+        """Grid tiles (AOI-window coordinates) that touch the AOI polygon."""
+        t = self.tcfg
+        out = []
+        for spec in tile_grid(self.h, self.w, t.tile, t.overlap):
+            y0, x0 = max(0, spec.y0), max(0, spec.x0)
+            if self.in_aoi[y0 : spec.y0 + spec.tile, x0 : spec.x0 + spec.tile].any():
+                out.append(spec)
+        return out
+
+    def tiles(self) -> Iterator[tuple[TileSpec, FloatArray, BoolArray]]:
+        """``(spec, model input, stitch mask)`` for every tile with valid data."""
+        for spec in self.specs():
+            t0 = time.perf_counter()
+            g = replace(
+                spec, y0=spec.y0 + int(self.win.row_off), x0=spec.x0 + int(self.win.col_off)
+            )
+            prep = prepare_tile(
+                g, self.scene, self.readers, self.norm, self.tcfg.pad_mode, self.flip
+            )
+            self.timings["prepare_s"] += time.perf_counter() - t0
+            if prep is not None:
+                yield (spec, *prep)
+
+    def add(self, spec: TileSpec, prob: FloatArray, valid: BoolArray) -> None:
+        """Stitch one tile probability (model orientation; flipped back here)."""
+        t0 = time.perf_counter()
+        self.stitcher.add(spec, prob[::-1] if self.flip else prob, valid)
+        self.n_tiles += 1
+        self.timings["stitch_s"] += time.perf_counter() - t0
+
+    def finish(self) -> SegmentResult:
+        """Clean, vectorise and write ``mask.tif`` and ``buildings.geojson``."""
+        h, w, tr, info = self.h, self.w, self.transform, self.info
+        t0 = time.perf_counter()
+        prob = self.stitcher.read(Window(0, 0, w, h))[0]
+        covered = np.isfinite(prob) & self.in_aoi
+        clean = clean_mask_blockwise(
+            prob, covered, replace(self.pcfg, threshold=self.threshold), tr
+        )
+        raw = vectorize_mask_blockwise(clean, tr, self.pcfg.block, 4)
+        scores = _scores(raw, clean, prob, tr)
+        polys = simplify(raw, self.pcfg.simplify_tolerance_m)
+        if len(polys) != len(raw):  # simplify split or dropped a part: keep the raw ones
+            polys = raw
+        assert info.crs is not None
+        gdf = to_geodataframe(polys, info.crs, [p.area for p in raw])
+        gdf["score"] = scores
+        self.timings["postprocess_s"] = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        mask = np.where(covered, clean.astype(np.uint8), np.uint8(MASK_NODATA)).astype(np.uint8)
+        like = replace(info, transform=tr, width=w, height=h, count=1, dtypes=("uint8",))
+        mask_path = self.out_dir / "mask.tif"
+        with RasterWriter(
+            mask_path,
+            like,
+            self.io_cfg,
+            count=1,
+            dtype="uint8",
+            nodata=MASK_NODATA,
+            overview_resampling="NEAREST",
+        ) as wr:
+            wr.write(mask, Window(0, 0, w, h))
+        out = gdf.to_crs(OUT_CRS)
+        geojson_path = export_geojson(
+            out, self.out_dir / "buildings.geojson", None, self.io_cfg.read_only_roots
+        )
+        self.timings["write_s"] = time.perf_counter() - t0
+        self.timings["total_s"] = time.perf_counter() - self.t_start
+        return SegmentResult(
+            out,
+            self.n_tiles,
+            {k: round(v, 3) for k, v in self.timings.items()},
+            mask_path,
+            geojson_path,
+        )
+
+    def close(self) -> None:
+        """Close the readers and remove the stitcher's memmaps."""
+        self._es.close()
+
+    def __enter__(self) -> SegmentJob:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+
 def segment_aoi(
     scene: SceneInputs,
     aoi_wgs84: BaseGeometry,
@@ -196,110 +362,31 @@ def segment_aoi(
     batch_size: int,
     max_aoi_px: int,
 ) -> SegmentResult:
-    """Run one building-segmentation job and write its outputs (see module docstring).
+    """Run one building-segmentation job alone, batching its own tiles (per-job policy).
 
     Raises
     ------
     ValueError
-        If the AOI misses the scene or exceeds ``max_aoi_px``, or a SAR/fused scene has
-        no orientation.
+        See :class:`SegmentJob`.
     """
-    t_start = time.perf_counter()
-    flip = needs_flip(scene.sensor, scene.orientation)
-    ref = scene.optical if scene.sensor in ("optical", "fused") else scene.sar
-    assert ref is not None
-    timings = dict.fromkeys(("prepare_s", "infer_s", "stitch_s"), 0.0)
-    with ExitStack() as es:
-        readers: dict[str, RasterReader] = {}
-        if scene.optical is not None and scene.sensor != "sar":
-            readers["optical"] = es.enter_context(RasterReader(scene.optical))
-        if scene.sar is not None and scene.sensor != "optical":
-            readers["sar"] = es.enter_context(RasterReader(scene.sar))
-        info = readers["optical" if "optical" in readers else "sar"].info
-        if info.crs is None:
-            raise ValueError(f"{ref} has no CRS")
-        aoi = to_crs(aoi_wgs84, OUT_CRS, info.crs)
-        win = aoi_window(aoi, info.transform, info.width, info.height)
-        h, w = int(win.height), int(win.width)
-        if h * w > max_aoi_px:
-            raise ValueError(f"AOI window {w} x {h} px exceeds the limit of {max_aoi_px} px")
-        tr = window_transform(win, info.transform)
-        in_aoi = geometry_mask([aoi], (h, w), tr, invert=True)
-        st = es.enter_context(
-            Stitcher(
-                h,
-                w,
-                tcfg.tile,
-                tcfg.overlap,
-                tcfg.strategy,
-                memmap_min_px=tcfg.memmap_min_px,
-                scratch_dir=tcfg.scratch_dir,
-            )
-        )
+    with SegmentJob(
+        scene, aoi_wgs84, norm, threshold, tcfg, pcfg, io_cfg, out_dir, max_aoi_px=max_aoi_px
+    ) as job:
         batch: list[tuple[TileSpec, FloatArray, BoolArray]] = []
-        n_tiles = 0
 
         def flush() -> None:
             if not batch:
                 return
             t0 = time.perf_counter()
             probs = predictor(np.stack([b[1] for b in batch]))
-            t1 = time.perf_counter()
+            job.timings["infer_s"] += time.perf_counter() - t0
             for (spec, _, valid), p in zip(batch, probs, strict=True):
-                st.add(spec, p[::-1] if flip else p, valid)
-            timings["infer_s"] += t1 - t0
-            timings["stitch_s"] += time.perf_counter() - t1
+                job.add(spec, p, valid)
             batch.clear()
 
-        for spec in tile_grid(h, w, tcfg.tile, tcfg.overlap):
-            y0, x0 = max(0, spec.y0), max(0, spec.x0)
-            if not in_aoi[y0 : spec.y0 + spec.tile, x0 : spec.x0 + spec.tile].any():
-                continue
-            t0 = time.perf_counter()
-            g = replace(spec, y0=spec.y0 + int(win.row_off), x0=spec.x0 + int(win.col_off))
-            prep = prepare_tile(g, scene, readers, norm, tcfg.pad_mode, flip)
-            timings["prepare_s"] += time.perf_counter() - t0
-            if prep is None:
-                continue
-            batch.append((spec, *prep))
-            n_tiles += 1
+        for item in job.tiles():
+            batch.append(item)
             if len(batch) >= batch_size:
                 flush()
         flush()
-        t0 = time.perf_counter()
-        prob = st.read(Window(0, 0, w, h))[0]
-        covered = np.isfinite(prob) & in_aoi
-        clean = clean_mask_blockwise(prob, covered, replace(pcfg, threshold=threshold), tr)
-        raw = vectorize_mask_blockwise(clean, tr, pcfg.block, 4)
-        scores = _scores(raw, clean, prob, tr)
-        polys = simplify(raw, pcfg.simplify_tolerance_m)
-        if len(polys) != len(raw):  # simplify split or dropped a part: keep the raw ones
-            polys = raw
-        gdf = to_geodataframe(polys, info.crs, [p.area for p in raw])
-        gdf["score"] = scores
-        timings["postprocess_s"] = time.perf_counter() - t0
-
-        t0 = time.perf_counter()
-        out_dir.mkdir(parents=True, exist_ok=True)
-        mask = np.where(covered, clean.astype(np.uint8), np.uint8(MASK_NODATA)).astype(np.uint8)
-        like = replace(info, transform=tr, width=w, height=h, count=1, dtypes=("uint8",))
-        mask_path = out_dir / "mask.tif"
-        with RasterWriter(
-            mask_path,
-            like,
-            io_cfg,
-            count=1,
-            dtype="uint8",
-            nodata=MASK_NODATA,
-            overview_resampling="NEAREST",
-        ) as wr:
-            wr.write(mask, Window(0, 0, w, h))
-        out = gdf.to_crs(OUT_CRS)
-        geojson_path = export_geojson(
-            out, out_dir / "buildings.geojson", None, io_cfg.read_only_roots
-        )
-        timings["write_s"] = time.perf_counter() - t0
-    timings["total_s"] = time.perf_counter() - t_start
-    return SegmentResult(
-        out, n_tiles, {k: round(v, 3) for k, v in timings.items()}, mask_path, geojson_path
-    )
+        return job.finish()

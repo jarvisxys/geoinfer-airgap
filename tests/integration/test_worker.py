@@ -17,7 +17,7 @@ from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session
 
 from geoinfer.service.api.app import create_app
-from geoinfer.service.api.settings import Settings, WorkerSettings
+from geoinfer.service.api.settings import SchedulingSettings, Settings, WorkerSettings
 from geoinfer.service.db import queue
 from geoinfer.service.db.migrate import downgrade, upgrade
 from geoinfer.service.db.schema import Building, Job
@@ -83,6 +83,7 @@ def env(tmp_path: Path, make_tiff: MakeTiff, tiny_onnx: Callable[..., Path]) -> 
             max_aoi_mpx=1.0,
             scratch_dir=tmp_path / "scratch",
             metrics_port=0,
+            scheduling=SchedulingSettings("cross_job", "priority", 0.1, 25.0, 2, 16),
         ),
     )
     engine = create_engine(URL)
@@ -202,3 +203,32 @@ def test_requeue_orphans_after_a_crash(env: dict) -> None:
         assert j.status == "queued"
         assert j.worker_id is None
     assert c.get(f"/v1/jobs/{jid}").json()["status"] == "queued"
+
+
+@pytest.mark.parametrize("batching", ["cross_job", "per_job"])
+def test_scheduled_runner_runs_concurrent_jobs(env: dict, batching: str) -> None:
+    from geoinfer.service.worker.runner import ScheduledRunner
+
+    c, w = env["client"], env["worker"]
+    sc = replace(w.settings.worker.scheduling, batching=batching, max_active_jobs=3)
+    # batch 6 does not divide a job's 20 tiles (4 x 5 grid): each tail leaves room for another job
+    w.settings = replace(w.settings, worker=replace(w.settings.worker, scheduling=sc, batch_size=6))
+    w.beat()
+    ids = [_submit(c) for _ in range(3)]
+    runner = ScheduledRunner(w)
+    seen: list[set[str]] = []
+    run_batch = runner._run_batch
+
+    def spy(batch: list) -> None:
+        seen.append({aj.job_id for aj, _ in batch})
+        run_batch(batch)
+
+    runner._run_batch = spy  # type: ignore[method-assign]
+    runner.run(until_idle=True)
+    for jid in ids:
+        j = c.get(f"/v1/jobs/{jid}").json()
+        assert j["status"] == "ready", j
+        gj = c.get(f"/v1/jobs/{jid}/result", params={"format": "geojson"}).json()
+        assert sorted(round(f["properties"]["area_m2"]) for f in gj["features"]) == [600, 1000]
+    mixed = any(len(s) > 1 for s in seen)
+    assert mixed is (batching == "cross_job")

@@ -17,13 +17,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from geoinfer.service.api.app import create_app
-from geoinfer.service.api.settings import Settings, WorkerSettings
+from geoinfer.service.api.settings import SchedulingSettings, Settings, WorkerSettings
 from geoinfer.service.db import queue
 from geoinfer.service.db.migrate import downgrade, upgrade
 from geoinfer.service.db.schema import Job, Model
 from tests.conftest import MakeTiff
 
 URL = os.environ.get("GEOINFER_TEST_DB_URL")
+SCHED = SchedulingSettings("cross_job", "priority", 0.1, 25.0, 2, 16)
 pytestmark = [
     pytest.mark.db,
     pytest.mark.skipif(not URL, reason="needs GEOINFER_TEST_DB_URL (PostGIS)"),
@@ -71,7 +72,9 @@ def env(tmp_path: Path, make_tiff: MakeTiff) -> Iterator[dict]:
         default_models={"optical": "m_opt", "sar": "m_sar", "fused": "m_fus"},
         stats_file=Path("stats/stats.json"),
         preprocess_config=Path("configs/preprocess.yaml"),
-        worker=WorkerSettings("w", 1.0, 3.0, 8, ("CPUExecutionProvider",), 150.0, tmp_path, 0),
+        worker=WorkerSettings(
+            "w", 1.0, 3.0, 8, ("CPUExecutionProvider",), 150.0, tmp_path, 0, SCHED
+        ),
     )
     engine = create_engine(URL)
     with Session(engine) as s:

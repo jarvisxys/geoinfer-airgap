@@ -171,3 +171,41 @@ def test_heartbeat_and_readiness(engine: Engine) -> None:
         s.execute(text("update workers set last_seen = now() - interval '1 minute'"))
         s.commit()
         assert not queue.worker_alive(s, max_age_s=10)
+
+
+def _claim_all(engine: Engine, queue_policy: str, ageing: float) -> list[uuid.UUID | None]:
+    out = []
+    for _ in range(3):
+        with Session(engine) as s:
+            j = queue.claim_next_job(s, "w1", queue_policy, ageing)
+            s.commit()
+            out.append(None if j is None else j.id)
+    return out
+
+
+def test_claim_order_fifo_ignores_priority(engine: Engine) -> None:
+    with Session(engine) as s:
+        _seed(s)
+        low, high = _job(s, 0), _job(s, 5)
+        s.execute(
+            text("UPDATE jobs SET created_at = now() - interval '10 s' WHERE id = :i"), {"i": low}
+        )
+        s.commit()
+    assert _claim_all(engine, "fifo", 0.0) == [low, high, None]
+
+
+def test_claim_order_ageing_lets_an_old_low_job_overtake(engine: Engine) -> None:
+    with Session(engine) as s:
+        _seed(s)
+        low, high = _job(s, 0), _job(s, 5)
+        # waited 60 s: 0 + 0.1/s * 60 = 6 > 5 + 0.1 * ~0
+        s.execute(
+            text("UPDATE jobs SET created_at = now() - interval '60 s' WHERE id = :i"), {"i": low}
+        )
+        s.commit()
+    assert _claim_all(engine, "priority", 0.1) == [low, high, None]
+
+
+def test_claim_order_rejects_unknown_policy(engine: Engine) -> None:
+    with Session(engine) as s, pytest.raises(ValueError, match="queue"):
+        queue.claim_next_job(s, "w1", "lifo")

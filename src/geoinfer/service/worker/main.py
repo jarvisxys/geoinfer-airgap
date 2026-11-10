@@ -1,6 +1,10 @@
 """The inference worker: claim a queued job, run it, store the result (plan section 3).
 
-Loop: claim the next job (``FOR UPDATE SKIP LOCKED``), check the model file against its
+``run_forever`` serves jobs concurrently through :mod:`~geoinfer.service.worker.runner`
+(cross-job batching, priority with ageing; ``worker.scheduling``). The serial path below
+(:meth:`Worker.process_one`) runs one job at a time.
+
+Serial loop: claim the next job (``FOR UPDATE SKIP LOCKED``), check the model file against its
 registry hash, build the model's inputs from the scene, run
 :func:`~geoinfer.service.worker.pipeline.segment_aoi`, insert the building polygons and
 mark the job ready, all in one transaction; on any error the job is marked failed with
@@ -18,11 +22,13 @@ import logging
 import math
 import signal
 import threading
+import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import FrameType
 from typing import Any
 
+import numpy as np
 import yaml
 from geoalchemy2.shape import from_shape, to_shape
 from prometheus_client import CollectorRegistry, Counter, Histogram, start_http_server
@@ -35,7 +41,7 @@ from geoinfer.service.api.settings import Settings, load_settings
 from geoinfer.service.db import queue
 from geoinfer.service.db.schema import Building, Job, Model, Scene
 from geoinfer.service.registry import sha256_file
-from geoinfer.service.worker.pipeline import SceneInputs, SegmentResult, segment_aoi
+from geoinfer.service.worker.pipeline import SceneInputs, SegmentJob, SegmentResult
 from geoinfer.service.worker.predictor import OnnxPredictor, Predictor
 from geoinfer.tiling.config import TilingConfig, load_tiling_config
 from geoinfer.train.dataset import Normalizer
@@ -207,7 +213,8 @@ class Worker:
 
     # -- jobs --------------------------------------------------------------------------
 
-    def _run(self, s: Session, job: Job) -> SegmentResult:
+    def open_job(self, s: Session, job: Job) -> tuple[SegmentJob, _Loaded, Model]:
+        """Check the job's model, load it, and open the job's rasters and stitcher."""
         scene = s.get(Scene, job.scene_id)
         model = s.get(Model, job.model_id)
         if scene is None or model is None:
@@ -219,21 +226,21 @@ class Worker:
             )
         loaded = self._load(model)
         inputs = scene_inputs(scene, model.sensor_mode, self.settings.inbox)
-        out_dir = self.settings.outputs / str(job.id)
-        w = self.settings.worker
-        res = segment_aoi(
+        seg = SegmentJob(
             inputs,
             to_shape(job.aoi),
-            loaded.predictor,
             loaded.norm,
             float(model.threshold),
             self.tcfg,
             self.pcfg,
             self.io_cfg,
-            out_dir,
-            batch_size=w.batch_size,
-            max_aoi_px=int(w.max_aoi_mpx * 1e6),
+            self.settings.outputs / str(job.id),
+            max_aoi_px=int(self.settings.worker.max_aoi_mpx * 1e6),
         )
+        return seg, loaded, model
+
+    def store(self, s: Session, job: Job, res: SegmentResult, out_dir: Path) -> None:
+        """Insert the job's buildings and mark it ready (caller commits)."""
         s.add_all(
             Building(
                 job_id=job.id,
@@ -256,12 +263,40 @@ class Worker:
             res.n_tiles,
             res.timings["total_s"],
         )
+
+    def _run(self, s: Session, job: Job) -> SegmentResult:
+        """One job alone, its own tiles batched (the per-job serial path)."""
+        seg, loaded, _ = self.open_job(s, job)
+        with seg:
+            batch: list[Any] = []
+
+            def flush() -> None:
+                if batch:
+                    t0 = time.perf_counter()
+                    probs = loaded.predictor(np.stack([b[1] for b in batch]))
+                    seg.timings["infer_s"] += time.perf_counter() - t0
+                    for (spec, _, valid), p in zip(batch, probs, strict=True):
+                        seg.add(spec, p, valid)
+                    batch.clear()
+
+            for item in seg.tiles():
+                batch.append(item)
+                if len(batch) >= self.settings.worker.batch_size:
+                    flush()
+            flush()
+            res = seg.finish()
+        self.store(s, job, res, seg.out_dir)
         return res
+
+    def claim(self, s: Session) -> Job | None:
+        """Claim the next job under the configured queue policy."""
+        sc = self.settings.worker.scheduling
+        return queue.claim_next_job(s, self.id, sc.queue, sc.ageing_per_s)
 
     def process_one(self) -> bool:
         """Claim and run one job; False when the queue is empty."""
         with Session(self.engine) as s:
-            job = queue.claim_next_job(s, self.id)
+            job = self.claim(s)
             s.commit()
             if job is None:
                 return False
@@ -302,15 +337,26 @@ class Worker:
         if port:
             start_http_server(port, registry=self.metrics.registry)
         log.info("worker %s ready (gpu %s)", self.id, self.gpu)
+        from geoinfer.service.worker.runner import ScheduledRunner
+
+        sc = self.settings.worker.scheduling
+        log.info(
+            "scheduling: %s batching, %s queue (ageing %.2f/s), max_wait %.0f ms, %d active jobs",
+            sc.batching,
+            sc.queue,
+            sc.ageing_per_s,
+            sc.max_wait_ms,
+            sc.max_active_jobs,
+        )
+        runner = ScheduledRunner(self)
         try:
             while not self.stop.is_set():
                 try:
-                    busy = self.process_one()
+                    runner.run()
                 except Exception:
-                    log.exception("queue poll failed")
-                    busy = False
-                if not busy:
+                    log.exception("scheduler loop failed; restarting it")
                     self.stop.wait(self.settings.worker.poll_interval_s)
+                    runner = ScheduledRunner(self)
         finally:
             self.stop.set()
             hb.join(timeout=5)
