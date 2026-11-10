@@ -1,0 +1,274 @@
+{
+  "meta": {
+    "label": "laptop",
+    "gpu": "NVIDIA GeForce GTX 1650 with Max-Q Design",
+    "scene": "d4 2621 x 15451 px",
+    "model": "unet_r34_optical_clouds_v1",
+    "threshold": 0.5,
+    "protocol": {
+      "warmup_batches": 50,
+      "repeats": 3,
+      "min_tiles_per_repeat": 256,
+      "gpu_sample_hz": 10
+    }
+  },
+  "engines": {
+    "tile": 512,
+    "overlap": 64,
+    "n_tiles": 128,
+    "engines": {
+      "torch_fp32": {
+        "batches": {
+          "1": {
+            "tiles_per_s": 33.6,
+            "tiles_per_s_std": 0.24,
+            "km2_per_min": 101.157,
+            "p50_ms": 29.78,
+            "p95_ms": 30.24,
+            "samples": 226,
+            "util_mean": 95.5,
+            "mem_peak_mib": 454.44140625,
+            "clock_mean_mhz": 1600,
+            "clock_min_mhz": 1545.0,
+            "temp_max_c": 80.0,
+            "vram_mib": 454
+          },
+          "4": {
+            "tiles_per_s": 35.74,
+            "tiles_per_s_std": 0.12,
+            "km2_per_min": 107.594,
+            "p50_ms": 111.9,
+            "p95_ms": 112.95,
+            "samples": 213,
+            "util_mean": 96.9,
+            "mem_peak_mib": 838.44140625,
+            "clock_mean_mhz": 1488,
+            "clock_min_mhz": 1410.0,
+            "temp_max_c": 84.0,
+            "vram_mib": 838
+          },
+          "8": {
+            "tiles_per_s": 31.06,
+            "tiles_per_s_std": 0.92,
+            "km2_per_min": 93.494,
+            "p50_ms": 254.23,
+            "p95_ms": 271.87,
+            "samples": 248,
+            "util_mean": 96.2,
+            "mem_peak_mib": 1522.44140625,
+            "clock_mean_mhz": 1404,
+            "clock_min_mhz": 1110.0,
+            "temp_max_c": 86.0,
+            "vram_mib": 1522
+          }
+        },
+        "build_s": 7.1
+      },
+      "torch_amp": {
+        "error": "non-finite output (fp16 overflow on this GPU)"
+      },
+      "ort_fp32": {
+        "batches": {
+          "1": {
+            "tiles_per_s": 27.46,
+            "tiles_per_s_std": 1.49,
+            "km2_per_min": 82.655,
+            "p50_ms": 36.4,
+            "p95_ms": 42.74,
+            "samples": 277,
+            "util_mean": 95.1,
+            "mem_peak_mib": 2052.44140625,
+            "clock_mean_mhz": 1222,
+            "clock_min_mhz": 990.0,
+            "temp_max_c": 87.0,
+            "vram_mib": 530
+          },
+          "4": {
+            "tiles_per_s": 27.33,
+            "tiles_per_s_std": 0.89,
+            "km2_per_min": 82.279,
+            "p50_ms": 141.36,
+            "p95_ms": 156.78,
+            "samples": 278,
+            "util_mean": 96.0,
+            "mem_peak_mib": 2564.44140625,
+            "clock_mean_mhz": 1073,
+            "clock_min_mhz": 990.0,
+            "temp_max_c": 86.0,
+            "vram_mib": 1042
+          },
+          "8": {
+            "tiles_per_s": 23.62,
+            "tiles_per_s_std": 0.27,
+            "km2_per_min": 71.112,
+            "p50_ms": 341.17,
+            "p95_ms": 343.78,
+            "samples": 334,
+            "util_mean": 92.9,
+            "mem_peak_mib": 3588.44140625,
+            "clock_mean_mhz": 1005,
+            "clock_min_mhz": 990.0,
+            "temp_max_c": 87.0,
+            "vram_mib": 2066
+          }
+        },
+        "build_s": 2.1
+      },
+      "ort_fp16": {
+        "error": "non-finite output (fp16 overflow on this GPU)"
+      },
+      "trt_fp16": {
+        "batches": {
+          "1": {
+            "tiles_per_s": 51.86,
+            "tiles_per_s_std": 3.73,
+            "km2_per_min": 156.132,
+            "p50_ms": 20.14,
+            "p95_ms": 20.76,
+            "samples": 149,
+            "util_mean": 90.7,
+            "mem_peak_mib": 1966.44140625,
+            "clock_mean_mhz": 1048,
+            "clock_min_mhz": 990.0,
+            "temp_max_c": 87.0,
+            "vram_mib": 294
+          },
+          "4": {
+            "tiles_per_s": 52.05,
+            "tiles_per_s_std": 0.2,
+            "km2_per_min": 156.705,
+            "p50_ms": 76.75,
+            "p95_ms": 78.18,
+            "samples": 148,
+            "util_mean": 92.5,
+            "mem_peak_mib": 1982.44140625,
+            "clock_mean_mhz": 990,
+            "clock_min_mhz": 990.0,
+            "temp_max_c": 87.0,
+            "vram_mib": 310
+          },
+          "8": {
+            "tiles_per_s": 53.33,
+            "tiles_per_s_std": 0.24,
+            "km2_per_min": 160.563,
+            "p50_ms": 150.31,
+            "p95_ms": 152.97,
+            "samples": 146,
+            "util_mean": 92.1,
+            "mem_peak_mib": 2014.44140625,
+            "clock_mean_mhz": 991,
+            "clock_min_mhz": 990.0,
+            "temp_max_c": 88.0,
+            "vram_mib": 342
+          }
+        },
+        "build_s": 4.5
+      }
+    },
+    "gpu_processes": {
+      "before": [],
+      "after": [
+        {
+          "pid": 4279,
+          "mib": 0
+        }
+      ]
+    },
+    "seconds": 294
+  },
+  "accuracy": {
+    "batch": 8,
+    "tile": 512,
+    "overlap": 64,
+    "engines": {
+      "torch_fp32": {
+        "tiles": 204,
+        "timings": {
+          "prepare_s": 74.299,
+          "infer_s": 11.738,
+          "stitch_s": 1.06,
+          "postprocess_s": 12.835,
+          "write_s": 0.814,
+          "total_s": 100.851
+        },
+        "km2_per_min": 6.023,
+        "gpu": {
+          "samples": 977,
+          "util_mean": 10.1,
+          "mem_peak_mib": 1380.44140625,
+          "clock_mean_mhz": 953,
+          "clock_min_mhz": 300.0,
+          "temp_max_c": 86.0
+        },
+        "pixel_iou": 0.7101,
+        "object_f1": 0.5033,
+        "iou_drop_vs_torch_fp32": 0.0,
+        "object_f1_drop_vs_torch_fp32": 0.0
+      },
+      "torch_amp": {
+        "skipped": "non-finite output (fp16 overflow on this GPU)"
+      },
+      "ort_fp32": {
+        "tiles": 204,
+        "timings": {
+          "prepare_s": 30.799,
+          "infer_s": 8.634,
+          "stitch_s": 0.738,
+          "postprocess_s": 14.204,
+          "write_s": 0.734,
+          "total_s": 55.186
+        },
+        "km2_per_min": 11.007,
+        "gpu": {
+          "samples": 535,
+          "util_mean": 13.3,
+          "mem_peak_mib": 3446.44140625,
+          "clock_mean_mhz": 1188,
+          "clock_min_mhz": 300.0,
+          "temp_max_c": 82.0
+        },
+        "pixel_iou": 0.7101,
+        "object_f1": 0.5033,
+        "iou_drop_vs_torch_fp32": 0.0,
+        "object_f1_drop_vs_torch_fp32": 0.0
+      },
+      "ort_fp16": {
+        "skipped": "non-finite output (fp16 overflow on this GPU)"
+      },
+      "trt_fp16": {
+        "tiles": 204,
+        "timings": {
+          "prepare_s": 38.912,
+          "infer_s": 6.123,
+          "stitch_s": 0.787,
+          "postprocess_s": 18.071,
+          "write_s": 6.674,
+          "total_s": 70.662
+        },
+        "km2_per_min": 8.597,
+        "gpu": {
+          "samples": 653,
+          "util_mean": 7.5,
+          "mem_peak_mib": 1876.44140625,
+          "clock_mean_mhz": 875,
+          "clock_min_mhz": 300.0,
+          "temp_max_c": 80.0
+        },
+        "pixel_iou": 0.7102,
+        "object_f1": 0.5042,
+        "iou_drop_vs_torch_fp32": -0.0001,
+        "object_f1_drop_vs_torch_fp32": -0.0009
+      }
+    },
+    "gpu_processes": {
+      "before": [],
+      "after": [
+        {
+          "pid": 6139,
+          "mib": 0
+        }
+      ]
+    },
+    "seconds": 307
+  }
+}
