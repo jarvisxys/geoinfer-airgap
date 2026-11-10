@@ -30,7 +30,8 @@ def test_summarize_run_latency_and_throughput() -> None:
     recs.append({"i": 4, "job_id": None, "http": 422, "side_km": 1.0, "priority": 0})
     s = summarize_run(recs)
     assert (s["submitted"], s["ready"], s["failed"], s["rejected"]) == (4, 3, 1, 1)
-    assert s["latency"]["n"] == 3 and s["latency"]["p50_s"] == 10.0  # 10, 4, 15 s
+    assert s["latency"]["n"] == 3
+    assert s["latency"]["p50_s"] == 10.0
     assert s["by_priority"]["5"]["p50_s"] == 4.0
     assert s["by_side_km"]["1.0"]["n"] == 2
     assert s["queue_wait"]["p50_s"] == 2.0  # 0, 2, 5 s
