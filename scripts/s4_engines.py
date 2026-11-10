@@ -300,8 +300,17 @@ def main() -> None:
     p.add_argument("--scene-dir", type=Path, default=None, help="override the D4 folder")
     p.add_argument("--models-dir", type=Path, default=None, help="override s4.models_dir")
     p.add_argument("--run-dir", type=Path, default=None, help="override s4.run_dir")
+    p.add_argument("--engines", default=None, help="comma list overriding s4.engines")
+    p.add_argument("--batches", default=None, help="comma list overriding s4.batches")
+    p.add_argument("--sweep-tiles", default=None, help="comma list overriding sweep.tiles")
     a = p.parse_args()
     ctx = Ctx(a)
+    if a.engines:
+        ctx.cfg["s4"]["engines"] = a.engines.split(",")
+    if a.batches:
+        ctx.cfg["s4"]["batches"] = [int(b) for b in a.batches.split(",")]
+    if a.sweep_tiles:
+        ctx.cfg["sweep"]["tiles"] = [int(t) for t in a.sweep_tiles.split(",")]
     out_path = a.out or Path(f"docs/figures/s4_{a.label}.json")
     result: dict[str, Any] = json.loads(out_path.read_text()) if out_path.exists() else {}
     import pynvml
