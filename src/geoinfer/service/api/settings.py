@@ -13,6 +13,12 @@ import yaml
 DEFAULT_SERVICE_CONFIG = Path("configs/service.yaml")
 
 
+def _env(name: str, default: Any) -> Any:
+    """``GEOINFER_<name>`` if set and non-empty (Compose passes unset variables as "")."""
+    v = os.environ.get(f"GEOINFER_{name}", "")
+    return v if v != "" else default
+
+
 @dataclass(frozen=True)
 class SchedulingSettings:
     """Tile scheduling (``worker.scheduling``; experiments E2 and E3)."""
@@ -83,17 +89,19 @@ def load_settings(path: Path | None = None) -> Settings:
             worker_id=os.environ.get("GEOINFER_WORKER_ID", socket.gethostname()),
             poll_interval_s=float(w["poll_interval_s"]),
             heartbeat_interval_s=float(w["heartbeat_interval_s"]),
-            batch_size=int(w["batch_size"]),
+            batch_size=int(_env("BATCH_SIZE", w["batch_size"])),
             providers=tuple(w["providers"]),
             max_aoi_mpx=float(w["max_aoi_mpx"]),
             scratch_dir=Path(os.environ.get("GEOINFER_SCRATCH", w["scratch_dir"])),
             metrics_port=int(w["metrics_port"]),
+            # GEOINFER_BATCHING, _QUEUE, _AGEING_PER_S, _MAX_WAIT_MS, _MAX_ACTIVE_JOBS:
+            # the load-test driver switches policies without editing the config
             scheduling=SchedulingSettings(
-                batching=str(sc["batching"]),
-                queue=str(sc["queue"]),
-                ageing_per_s=float(sc["ageing_per_s"]),
-                max_wait_ms=float(sc["max_wait_ms"]),
-                max_active_jobs=int(sc["max_active_jobs"]),
+                batching=str(_env("BATCHING", sc["batching"])),
+                queue=str(_env("QUEUE", sc["queue"])),
+                ageing_per_s=float(_env("AGEING_PER_S", sc["ageing_per_s"])),
+                max_wait_ms=float(_env("MAX_WAIT_MS", sc["max_wait_ms"])),
+                max_active_jobs=int(_env("MAX_ACTIVE_JOBS", sc["max_active_jobs"])),
                 prefetch_tiles=int(sc["prefetch_tiles"]),
             ),
         ),
