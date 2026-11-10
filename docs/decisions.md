@@ -176,5 +176,9 @@ for E5; request mix with `building_stats`, `export_geojson` and `cloudy_optical`
 - **(e) Open-loop replay** instead of Locust: Locust users are closed-loop and would wait
   for each job, which hides queueing delay at high load. `loadtest/replay.py` submits each
   request at its scheduled time; latency comes from the database timestamps.
+- **(g) AOI sizes.** Optical AOIs are 0.5, 1 and 2 km (the plan also lists 5 km). A 5 km
+  AOI is a 100 Mpx job needing about 2 GB in the worker; with the database, API and worker
+  in the 4.8 GB WSL VM, the first attempt pushed memory into the Windows page file on the
+  nearly full system drive. Large scenes are covered by S1 / S4 (40 and 121 Mpx) instead.
 - **(f) Dropped:** E6 (fault-injection soak) and the Grafana dashboard, to keep time for
   the report; the worker and API expose Prometheus metrics for later use.

@@ -4,6 +4,7 @@ SHELL := /bin/bash
 SAMPLE ?= $(HOME)/geo-data/sample
 DATA ?= $(HOME)/geo-data/service
 VERSION ?= 0.3.0
+LABEL ?= laptop
 BUNDLE_OUT ?= /mnt/d/geo/bundles
 CFG ?= configs/train_fused.yaml
 
@@ -149,8 +150,15 @@ airgap-test:  ## air-gapped stack test: --network none + internal network, one j
 bundle:  ## offline bundle: make bundle VERSION=0.3.0 [BUNDLE_OUT=/mnt/d/geo/bundles]
 	scripts/make_offline_bundle.sh $(VERSION) $(BUNDLE_OUT)
 
-bench:  ## (later phases)
-	@echo "'$@' is not implemented yet; see the phase plan in docs/"
+load-requests:  ## synthetic analyst requests (configs/loadtest.yaml) -> data/requests/
+	uv run python scripts/gen_requests.py
+
+load-experiments:  ## E2-E4 on the local stack (data on D:, ~2 h; needs well over 5 GB free on C:)
+	uv run python scripts/load_experiments.py
+
+bench:  ## S4 engine study on this GPU, then the S4 figure and table
+	uv run python scripts/s4_engines.py --label $(LABEL)
+	uv run python scripts/plot_s4.py
 
 clean:  ## remove caches
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov

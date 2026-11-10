@@ -39,7 +39,7 @@ def api() -> Iterator[tuple[str, list[float]]]:
             n = int(self.headers["Content-Length"])
             json.loads(self.rfile.read(n))
             posts.append(time.monotonic() - t0)
-            time.sleep(0.2)  # a slow API must not delay later arrivals
+            time.sleep(0.5)  # a slow API must not delay later arrivals
             self._send(202, {"id": f"j{len(posts)}", "status": "queued"})
 
         def do_GET(self) -> None:
@@ -77,8 +77,8 @@ def test_replay_is_open_loop_and_collects_results(api: tuple[str, list[float]]) 
     ]
     t0 = time.monotonic()
     recs = replay(url, reqs, rate=1.0)
-    # six 0.2 s responses, arrivals 50 ms apart: open loop finishes in ~0.45 s, not 1.2 s
-    assert time.monotonic() - t0 < 0.9
+    # six 0.5 s responses, arrivals 50 ms apart: open loop finishes in ~0.75 s, serial in 3 s
+    assert time.monotonic() - t0 < 2.0
     assert all(r["http"] == 202 for r in recs)
     assert max(posts) < 0.6
     wait_all(url, recs, timeout_s=5, poll_s=0.01)

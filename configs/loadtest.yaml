@@ -7,7 +7,7 @@ requests:
   priorities: {high: 5, normal: 0}
   burst: 24                         # requests submitted at t = 0 (capacity / burst run)
   modes:                            # weight, scene, AOI sides in km
-    optical: {weight: 0.6, scene: d3, sides_km: [0.5, 1, 2, 5]}
+    optical: {weight: 0.6, scene: d3, sides_km: [0.5, 1, 2]}   # 5 km (100 Mpx) left out: laptop RAM (D8)
     sar: {weight: 0.2, scene: demo_fused, sides_km: [0.5, 1]}
     fused: {weight: 0.2, scene: demo_fused, sides_km: [0.5, 1]}
 scenes:                             # id: file in the inbox (+ SAR file, look direction)

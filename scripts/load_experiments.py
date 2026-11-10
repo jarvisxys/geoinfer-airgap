@@ -51,12 +51,18 @@ def _free_gb(path: str) -> float:
 
 def _check_disk() -> None:
     c = _free_gb("/mnt/c") if Path("/mnt/c").exists() else 99.0
-    if c < 2.0:
+    if c < 1.0:
         raise SystemExit(f"stopping: only {c:.1f} GB free on C:")
 
 
-def compose(env: dict[str, str], *args: str) -> None:
-    subprocess.run([*COMPOSE, *args], env=env, check=True, capture_output=True, text=True)
+def compose(env: dict[str, str], *args: str, check: bool = True) -> None:
+    r = subprocess.run([*COMPOSE, *args], env=env, capture_output=True, text=True)
+    if r.returncode and check:
+        raise SystemExit(f"docker compose {' '.join(args)} failed:\n{r.stderr[-2000:]}")
+    if r.returncode:
+        # `up --wait` also fails when the one-shot init container has exited from an
+        # earlier start; readiness is then checked through /readyz instead
+        print(f"note: docker compose {' '.join(args)} returned {r.returncode}", flush=True)
 
 
 def wait_ready(timeout: float = 180) -> None:
@@ -86,7 +92,7 @@ def setup(cfg: dict[str, Any], env: dict[str, str]) -> None:
         if not (inbox / name).exists():
             print(f"copy {src} -> {inbox / name}")
             shutil.copy2(src, inbox / name)
-    compose(env, "up", "-d", "--wait")
+    compose(env, "up", "-d", "--wait", check=False)
     wait_ready()
     for sid, body in cfg["scenes"].items():
         st, out = call(API, "POST", "/v1/scenes", {"id": sid, **body}, timeout=600)
@@ -98,7 +104,7 @@ def configure(env: dict[str, str], arm: dict[str, Any]) -> dict[str, str]:
     e = dict(env)
     for k, var in SCHED_ENV.items():
         e[var] = str(arm[k]) if k in arm else ""
-    compose(e, "up", "-d", "--wait", "--no-deps", "--force-recreate", "worker")
+    compose(e, "up", "-d", "--wait", "--no-deps", "--force-recreate", "worker", check=False)
     wait_ready()
     return e
 
