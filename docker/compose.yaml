@@ -58,6 +58,13 @@ services:
     environment:
       <<: *service-env
       GEOINFER_WORKER_ID: worker-gpu${GEOINFER_GPU:-0}
+      # scheduling overrides (empty = configs/service.yaml); set by the load-test driver
+      GEOINFER_BATCH_SIZE: ${GEOINFER_BATCH_SIZE:-}
+      GEOINFER_BATCHING: ${GEOINFER_BATCHING:-}
+      GEOINFER_QUEUE: ${GEOINFER_QUEUE:-}
+      GEOINFER_AGEING_PER_S: ${GEOINFER_AGEING_PER_S:-}
+      GEOINFER_MAX_WAIT_MS: ${GEOINFER_MAX_WAIT_MS:-}
+      GEOINFER_MAX_ACTIVE_JOBS: ${GEOINFER_MAX_ACTIVE_JOBS:-}
     volumes:
       - "${GEOINFER_DATA}:/data"
       - "${GEOINFER_MODELS}:/models:ro"

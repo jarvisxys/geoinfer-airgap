@@ -1,6 +1,6 @@
 """PostgreSQL as the job queue (plan section 3): atomic claims with SKIP LOCKED.
 
-A worker claims the highest-priority, oldest queued job in one statement; rows locked by
+A worker claims the best queued job (see ``claim_next_job``) in one statement; rows locked by
 another worker's open transaction are skipped, so two workers never get the same job.
 """
 
@@ -13,25 +13,42 @@ from sqlalchemy.orm import Session
 
 from geoinfer.service.db.schema import Job
 
-_CLAIM = text(
-    """
-    UPDATE jobs SET status = 'running', started_at = now(), worker_id = :worker
-    WHERE id = (
-        SELECT id FROM jobs WHERE status = 'queued'
-        ORDER BY priority DESC, created_at
-        LIMIT 1 FOR UPDATE SKIP LOCKED)
-    RETURNING id
-    """
-)
+_ORDER = {
+    # arrival order only (E3 baseline)
+    "fifo": "created_at",
+    # two-level (or any) priority with ageing: priority points gained per second waited
+    "priority": "priority + :ageing * extract(epoch from now() - created_at) DESC, created_at",
+}
 
 
-def claim_next_job(session: Session, worker_id: str) -> Job | None:
-    """Mark the next queued job ``running`` for ``worker_id`` (caller commits)."""
-    jid = session.execute(_CLAIM, {"worker": worker_id}).scalar_one_or_none()
+def _claim(queue: str) -> Any:
+    if queue not in _ORDER:
+        raise ValueError(f"queue must be one of {tuple(_ORDER)}")
+    return text(
+        f"""
+        UPDATE jobs SET status = 'running', started_at = now(), worker_id = :worker
+        WHERE id = (
+            SELECT id FROM jobs WHERE status = 'queued'
+            ORDER BY {_ORDER[queue]}
+            LIMIT 1 FOR UPDATE SKIP LOCKED)
+        RETURNING id
+        """
+    )
+
+
+def claim_next_job(
+    session: Session, worker_id: str, queue: str = "priority", ageing_per_s: float = 0.0
+) -> Job | None:
+    """Mark the next queued job ``running`` for ``worker_id`` (caller commits).
+
+    ``queue="priority"`` ranks by ``priority + ageing_per_s * seconds waited`` (ties: older
+    first); ``"fifo"`` by submission time.
+    """
+    params = {"worker": worker_id, "ageing": ageing_per_s}
+    jid = session.execute(_claim(queue), params).scalar_one_or_none()
     if jid is None:
         return None
-    job = session.get(Job, jid, populate_existing=True)
-    return job
+    return session.get(Job, jid, populate_existing=True)
 
 
 def finish_job(
