@@ -152,3 +152,29 @@ model is the global `db_lee7` arm. The `db_lee7_strip` arm (D4) stays a research
 **Look direction:** one value per scene (`scenes.orientation`, required for SAR and fused).
 The demo scene is a D4 band where look direction 1 owns 97% of the SAR pixels; the other
 3% are set to nodata so the scene is consistent.
+
+## D8. Phase 4 scope: serving experiments on the laptop, offered load relative to capacity (2026-11-10)
+
+**Plan:** E1-E6 with Locust on both GPUs at 0.5, 1, 2 and 4 req/s; a `worker-torch` image
+for E5; request mix with `building_stats`, `export_geojson` and `cloudy_optical`.
+
+**Decisions** (approved with the Phase 4 plan, plus the load scaling found while building it):
+
+- **(a) GPUs.** The college server has no Docker and no PostgreSQL, so the serving
+  experiments (E2-E4) run on the laptop stack only. The engine study (S4 / E1 / E5) ran on
+  both GPUs: the 4 GB edge-class GTX 1650 and the 96 GB RTX PRO 6000.
+- **(b) Engines.** No `worker-torch` image: the PyTorch engines are measured offline in
+  the S4 harness on the same tiles and pipeline as the service.
+- **(c) Requests.** `segment_buildings` only (`building_stats` and `export_geojson` are
+  views of its result; cloud robustness is study S3). Optical AOIs on D3 (0.5-5 km sides),
+  SAR and fused AOIs on the demo band (single look direction, up to 1 km); 20 % high
+  priority; one fixed sequence `data/requests/requests_seed42.jsonl`.
+- **(d) Offered load relative to capacity.** A request averages about 160 tiles and
+  30 Mpx of post-processing, so the laptop serves well under 0.1 jobs/s and every rate in
+  the plan would saturate it. Capacity is measured with a burst of 24 requests; E4 offers
+  0.25, 0.5, 0.75, 1.0 and 1.5 x capacity, E2 runs at 0.75 x, E3 at 1.0 and 1.5 x.
+- **(e) Open-loop replay** instead of Locust: Locust users are closed-loop and would wait
+  for each job, which hides queueing delay at high load. `loadtest/replay.py` submits each
+  request at its scheduled time; latency comes from the database timestamps.
+- **(f) Dropped:** E6 (fault-injection soak) and the Grafana dashboard, to keep time for
+  the report; the worker and API expose Prometheus metrics for later use.
