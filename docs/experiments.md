@@ -248,3 +248,58 @@ object F1). Seams go from 3.23 (naive) to 1.65 (crop) to 0.99 (blending). The cl
 (`s1_d3val_optical.png`, `s1_d4_optical.png`) now sit at the seam crossing with the most
 labelled buildings; on D3-val two tiles disagree about a large structure, which naive
 pasting cuts with a hard edge and blending turns into a gradient.
+
+## E10. S4 / E1 / E5: inference engines, batch size, tile and overlap (2026-11-10)
+
+**Setup:** `scripts/s4_engines.py` (configs/bench.yaml). The same 128 real D4 tiles,
+normalised exactly as the worker does, go to five engines: PyTorch FP32 and AMP, ONNX Runtime
+CUDA FP32 and FP16 (fp16 ONNX, fp32 I/O), TensorRT FP16 through the ONNX Runtime TensorRT
+provider (tensorrt-cu13 10.16; ONNX Runtime 1.31 links TensorRT 10). Per batch size: 50 warm-up
+batches, then 3 repeats of at least 256 tiles; NVML sampled at 10 Hz (utilisation, memory,
+SM clock, temperature). Accuracy: each engine over the whole D4 mosaic through the worker
+pipeline. Sweep: tile 256 / 512 / 1024 x overlap 0 / 32 / 64 / 128 (Hann; naive at 0), pixels per
+batch constant. Server: GPU 1 of the RTX PRO 6000 pair, no other process on it during any part.
+Laptop: GTX 1650, batches 1 / 4 / 8 (TensorRT engine cached for that profile).
+Figure `docs/figures/s4_pareto.png`, table `docs/figures/s4_table.md`.
+
+| GPU | Engine | Best batch | Tiles/s | p95 batch (ms) | GPU util | Pixel IoU | Object F1 |
+|---|---|---|---|---|---|---|---|
+| GTX 1650 | PyTorch FP32 | 4 | 36 | 113 | 97 % | 0.7101 | 0.5033 |
+| GTX 1650 | PyTorch AMP, ORT FP16 | - | non-finite output | | | | |
+| GTX 1650 | ORT FP32 | 1 | 27 | 43 | 95 % | 0.7101 | 0.5033 |
+| GTX 1650 | TensorRT FP16 | 8 | 53 | 153 | 92 % | 0.7102 | 0.5042 |
+| RTX PRO 6000 | PyTorch FP32 | 16 | 512 | 33 | 46 % | 0.7101 | 0.5033 |
+| RTX PRO 6000 | PyTorch AMP | 32 | 625 | 60 | 31 % | 0.7101 | 0.5033 |
+| RTX PRO 6000 | ORT FP32 | 1 | 317 | 3 | 55 % | 0.7102 | 0.5033 |
+| RTX PRO 6000 | ORT FP16 | 4 | 615 | 8 | 38 % | 0.7102 | 0.5039 |
+| RTX PRO 6000 | TensorRT FP16 | 4 | 522 | 9 | 23 % | 0.7102 | 0.5038 |
+
+**Reading:**
+- FP16 costs no accuracy.
+- On the GTX 1650, FP16 through PyTorch or ONNX Runtime overflows (as in training); TensorRT
+  FP16 works and doubles throughput.
+- The laptop GPU is saturated and throttles to 990 MHz at 87 C; the clock log shows it,
+  starting with the ONNX Runtime runs.
+- The server GPU is never saturated (23-55 % utilisation): host copies and the numpy sigmoid
+  bound throughput, so the FP16 engines are level.
+- End to end on D4, inference is 6-12 s of a 55-100 s laptop run (reading tiles from the USB
+  drive dominates) and the server does 31-40 km2/min with any engine.
+- Sweep: overlap always gains IoU, 256 px without overlap loses 0.012; 512 / 64 (the service
+  default) is within 0.002 of the best IoU (0.712) at 38 km2/min. 1024 / 128 measured faster
+  than its neighbours, which is likely timing noise on the shared server.
+
+## E11. Success and failure gallery (2026-11-10)
+
+**Setup:** `scripts/gallery.py`. The shipped models run through the worker pipeline on the
+demo band of D4 (4096 x 2621 px, look direction 1 on 97 % of the SAR), clean and with a
+synthetic 50 % cloud cover (S3 generator, seed 7), plus the clean-trained optical model under
+the same clouds. Windows of 256 px are scored, and each case is the window that best meets a
+measured criterion (no hand-picking). Figures `docs/figures/gallery_{success,failure}.png`,
+statistics `docs/figures/gallery.json`; written analysis in the report.
+
+**Band pixel IoU:** optical 0.734, SAR 0.536, fused 0.712 (identical to the Gate 3 service
+jobs); under 50 % cloud cover: cloud-trained optical 0.629, cloud-trained fused 0.619,
+clean-trained optical 0.129.
+
+**Reading:** F3, picked as the largest SAR offset, has a phase-correlation peak of only 0.06,
+so it is reported as SAR false detections over clutter, not as a layover shift.

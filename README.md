@@ -17,8 +17,8 @@ FastAPI / PostGIS / Docker service is the delivery vehicle.
 | 1 | DIP core: io, normalisation, SAR despeckle, tiling, stitching, morphology, metrics | `v0.1-dip` | done |
 | 2 | Models: optical / SAR / fused U-Net, S1-S3 studies | `v0.2-models` | done |
 | 3 | Offline service: ONNX, FastAPI, worker, Docker, offline bundle | `v0.3-service` | done (Gate 3 passed) |
-| 4 | Benchmarks: S4 engines, E1-E6 serving experiments | `v0.4-bench` | |
-| 5 | Report + demo | `v1.0-submission` | |
+| 4 | Benchmarks: S4 engines, E1-E6 serving experiments | `v0.4-bench` | S4 / E1 / E5 done on both GPUs; scheduler and load-test tooling merged or in review; E2-E4 runs pending (laptop memory, D8) |
+| 5 | Report + demo | `v1.0-submission` | report in `report/` (LaTeX); demo runbook kept outside the repo |
 
 ## Quick start (WSL2 Ubuntu 24.04)
 
@@ -100,6 +100,27 @@ band (4096 x 2621 px, 60 tiles) returned polygons into PostGIS (EPSG:4326) and G
 Through the service, the optical model scores pixel IoU 0.6997 on all of D4, against 0.7009 in S1 with
 PyTorch (before clean-up), so the service preprocessing matches training. Throughput, p95
 and GPU use are Phase 4 (S4, E1-E6).
+
+## Results (Phase 4: engines, batch size, tile and overlap)
+
+Study S4 on the same D4 tiles and pipeline as the service, on the laptop GTX 1650 (4 GB) and
+the server RTX PRO 6000 (96 GB); full table in `docs/figures/s4_table.md`, figure
+`docs/figures/s4_pareto.png`, log E10 in `docs/experiments.md`.
+
+| Finding | Evidence |
+|---|---|
+| FP16 costs no accuracy | pixel IoU 0.710 and object F1 0.503-0.504 for every engine on D4 |
+| Laptop GPU is the bottleneck | 92-97 % utilisation; TensorRT FP16 53 tiles/s vs ONNX Runtime FP32 27; PyTorch AMP and ORT FP16 overflow on the GTX 1650 |
+| Server GPU is not | 23-55 % utilisation; best 625 tiles/s (PyTorch AMP), 615 (ORT FP16) |
+| Whole-scene jobs are I/O and CPU bound | D4 end to end 31-40 km2/min on the server with any engine |
+| Overlap pays | 256 px without overlap 0.698 IoU at 48 km2/min; 512 / 64 (service default) 0.710 at 38 km2/min |
+
+## Report
+
+`report/report.tex` (with `report/cases.tex`): problem, related work, data, block diagram,
+DIP stages with intermediate images, models, S1-S4 and serving results, the offline service,
+five success and five failure cases (`scripts/gallery.py`), limitations. Build with any LaTeX
+engine from `report/` (figures come from `docs/figures/`).
 
 ## Reproduce
 
