@@ -45,8 +45,10 @@ SAR normalisation is the best of five SAR pre-processing arms. Morphological cle
 SAR object F1 from 0.223 to 0.244. SAR + optical fusion trained with synthetic clouds keeps
 a pixel IoU of 0.527 at 80\,\% cloud cover, where a clean-trained optical model falls to 0.008.
 FP16 inference gives the same accuracy as FP32 on two GPUs, a 4\,GB laptop card and a 96\,GB
-data-centre card, and the serving experiments measure throughput and job latency under
-synthetic analyst traffic.
+data-centre card. Under replayed analyst traffic, batching tiles across jobs gives 30\,\%
+more throughput and 2.3$\times$ lower median latency than per-job batching. A priority
+queue with slow ageing cuts the 95th-percentile latency of urgent jobs by 89\,\% at
+saturation.
 \end{abstract}
 
 \section{Introduction}
@@ -513,12 +515,15 @@ evaluation already does.
 \item \textbf{Clouds.} The clouds are synthetic. Real clouds also cast shadows and change
 the haze and colour around them.
 \item \textbf{Serving experiments.} These were run on the 4\,GB laptop only, because the
-server had no Docker. The resilience (fault injection) experiment and the Grafana
-dashboards were left out (Decision D8).
+server had no Docker, with 2\,km maximum AOIs and a 4.8\,GB WSL memory limit; the laptop
+also warmed up over the session. The resilience (fault injection) experiment and the
+Grafana dashboards were left out (Decision D8). With the optical, SAR and fused models
+loaded at once, the three ONNX Runtime sessions fill the 4\,GB of GPU memory; capping each
+session's memory pool is the next step.
 \item \textbf{Future work.} Per-strip SAR statistics computed from the incoming scene
 itself; GPU-side normalisation and sigmoid to lift the host bottleneck seen on the server;
-a second task (e.g.\ flood mapping) to exercise multi-model routing; and a Kubernetes
-deployment with two workers.
+a capped GPU memory pool per model; a second task (e.g.\ flood mapping) to exercise
+multi-model routing; and a Kubernetes deployment with two workers.
 \end{itemize}
 
 \section{Reproducibility}

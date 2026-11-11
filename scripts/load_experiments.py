@@ -230,6 +230,8 @@ def main() -> None:
             rate, sub = level(float(frac))
             for arm in ex["E3"]["arms"]:
                 name = f"{arm['queue']}_load{frac}"
+                if arm["queue"] == "priority" and float(arm["ageing_per_s"]) != 0.1:
+                    name = f"priority_ageing{arm['ageing_per_s']}_load{frac}"
                 if name in res["E3"] and not a.redo:
                     continue
                 e = configure(env, base | arm)

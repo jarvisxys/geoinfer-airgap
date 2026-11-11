@@ -37,3 +37,5 @@ experiments:
     arms:
       - {queue: fifo, ageing_per_s: 0.0}
       - {queue: priority, ageing_per_s: 0.1}
+      # slower ageing: priority 5 outranks a waiting normal job for 500 s instead of 50 s
+      - {queue: priority, ageing_per_s: 0.01}
