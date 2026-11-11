@@ -1,0 +1,30 @@
+\paragraph{Method.} The serving experiments replay one fixed sequence of 200 synthetic analyst
+requests (\texttt{data/requests/requests\_seed42.jsonl}, seed 42):
+\begin{itemize}
+\item Poisson arrivals at unit rate, scaled to the target rate, so every run sees the same jobs;
+\item 60\,\% optical jobs on the D3 mosaic with square AOIs of 0.5, 1 or 2\,km;
+\item 40\,\% SAR or fused jobs on the demo band with 0.5 or 1\,km AOIs;
+\item 20\,\% high priority.
+\end{itemize}
+The replay is open-loop: each request is sent at its scheduled time, whatever the state of
+earlier ones. A closed-loop load generator such as Locust waits for each user's previous
+request, which hides queueing delay at high load. Job latency is taken from the database
+timestamps, from submission to result ready, because the API answers at once (HTTP 202)
+and runs the job in the background.
+
+Capacity is first measured with a burst of 24 requests. E4 then offers 0.25, 0.5, 0.75, 1.0
+and 1.5 times that capacity. E2 compares per-job batching with cross-job batching at a maximum
+wait of 10, 25 and 50\,ms, at 0.75$\times$. E3 compares FIFO with priority plus ageing at
+1.0$\times$ and 1.5$\times$, reading the p95 latency of high-priority jobs. Between runs the
+worker is recreated with the arm's scheduling and the job tables are emptied.
+
+\paragraph{Scope (Decision D8).} The college server has no Docker, so these experiments run on
+the laptop stack only. The rates are relative to the measured capacity, because a request
+averages about 50 tiles and the 4\,GB laptop saturates far below the plan's 0.5--4 requests
+per second. AOIs of 5\,km (100\,Mpx per job) are left out for the laptop's memory.
+
+\paragraph{Results.} \emph{The E2--E4 runs are pending: on the laptop, starting the full
+service stack grew the Windows page file on the nearly full system drive, so the runs were
+stopped before they could fill it. The tooling, request file and scheduler are in the
+repository (\texttt{make load-experiments}); this section will report the latency-vs-load
+curve, the batching comparison and the priority comparison once the runs have completed.}
