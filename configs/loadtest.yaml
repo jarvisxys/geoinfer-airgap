@@ -1,0 +1,37 @@
+# Serving experiments E2-E4 on the laptop (plan section 10; decision D8).
+requests:
+  seed: 42
+  n: 200                            # one fixed sequence, replayed at every load level
+  out: data/requests/requests_seed42.jsonl
+  high_priority_share: 0.2
+  priorities: {high: 5, normal: 0}
+  burst: 24                         # requests submitted at t = 0 (capacity / burst run)
+  modes:                            # weight, scene, AOI sides in km
+    optical: {weight: 0.6, scene: d3, sides_km: [0.5, 1, 2]}   # 5 km (100 Mpx) left out: laptop RAM (D8)
+    sar: {weight: 0.2, scene: demo_fused, sides_km: [0.5, 1]}
+    fused: {weight: 0.2, scene: demo_fused, sides_km: [0.5, 1]}
+scenes:                             # id: file in the inbox (+ SAR file, look direction)
+  d3: {path: d3_optical.tif, sensor: optical}
+  demo_fused: {path: demo_optical.tif, sar_path: demo_sar.tif, sensor: fused, orientation: 1}
+data_dir: /mnt/d/geo/service        # GEOINFER_DATA of the load-test stack (D:, not C:)
+run:
+  duration_s: 360                   # arrivals per load level (then the queue drains)
+  drain_timeout_s: 1800
+  poll_s: 2
+  # offered load as a fraction of the measured capacity (jobs/s from the burst run): the
+  # plan's 0.5-4 req/s assume a server GPU; the laptop saturates far below 0.5 req/s
+  load_fractions: [0.25, 0.5, 0.75, 1.0, 1.5]
+experiments:
+  E4: {loads: [0.25, 0.5, 0.75, 1.0, 1.5], batching: cross_job, max_wait_ms: 25, queue: priority}
+  E2:
+    load: 0.75
+    arms:
+      - {batching: per_job, max_wait_ms: 0}
+      - {batching: cross_job, max_wait_ms: 10}
+      - {batching: cross_job, max_wait_ms: 25}
+      - {batching: cross_job, max_wait_ms: 50}
+  E3:
+    loads: [1.0, 1.5]
+    arms:
+      - {queue: fifo, ageing_per_s: 0.0}
+      - {queue: priority, ageing_per_s: 0.1}
