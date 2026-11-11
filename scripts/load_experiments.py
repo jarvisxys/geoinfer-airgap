@@ -172,7 +172,9 @@ def main() -> None:
     a = p.parse_args()
     cfg = yaml.safe_load(Path("configs/loadtest.yaml").read_text())
     reqs = [json.loads(line) for line in Path(cfg["requests"]["out"]).read_text().splitlines()]
-    env = dict(os.environ, GEOINFER_DATA=cfg["data_dir"])
+    env = dict(
+        os.environ, GEOINFER_DATA=cfg["data_dir"], GEOINFER_WORKER_MEM=str(cfg["worker_mem"])
+    )
     res: dict[str, Any] = json.loads(a.out.read_text()) if a.out.exists() else {}
     steps = a.only.split(",")
 

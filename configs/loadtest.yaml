@@ -14,6 +14,7 @@ scenes:                             # id: file in the inbox (+ SAR file, look di
   d3: {path: d3_optical.tif, sensor: optical}
   demo_fused: {path: demo_optical.tif, sar_path: demo_sar.tif, sensor: fused, orientation: 1}
 data_dir: /mnt/d/geo/service        # GEOINFER_DATA of the load-test stack (D:, not C:)
+worker_mem: 4g                      # worker container limit: 3 models loaded + 2 active jobs (3g OOMs)
 run:
   duration_s: 360                   # arrivals per load level (then the queue drains)
   drain_timeout_s: 1800

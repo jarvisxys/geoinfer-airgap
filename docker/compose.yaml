@@ -70,7 +70,7 @@ services:
       - "${GEOINFER_MODELS}:/models:ro"
     networks: [backend]
     user: "${GEOINFER_UID:-1000}:${GEOINFER_GID:-1000}"
-    mem_limit: 3g
+    mem_limit: ${GEOINFER_WORKER_MEM:-3g}   # plan section 7: 3g; the load tests (3 models loaded, 2 jobs) need 4g
     stop_grace_period: 120s   # SIGTERM finishes the running job first
     deploy:
       resources:

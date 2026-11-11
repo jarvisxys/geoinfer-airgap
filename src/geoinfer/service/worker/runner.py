@@ -1,7 +1,9 @@
 """Concurrent job execution: reader threads, one GPU loop, a finisher (plan section 3).
 
-- **Claim**: while fewer than ``max_active_jobs`` are in flight, the GPU loop claims the
-  next queued job (``queue`` policy, with ageing) and opens it (:class:`SegmentJob`).
+- **Claim**: while fewer than ``max_active_jobs`` are in flight (jobs queued for the
+  finisher beyond the one it is working on count too, so memory stays bounded when the
+  CPU-heavy finishing is slower than the GPU), the GPU loop claims the next queued job
+  (``queue`` policy, with ageing) and opens it (:class:`SegmentJob`).
 - **Read**: one thread per active job reads and normalises tiles into the job's
   ``pending`` queue, at most ``prefetch_tiles`` ahead, so disk I/O and normalisation
   overlap with inference.
@@ -172,8 +174,10 @@ class ScheduledRunner:
         now = time.time()
         poll = self.worker.settings.worker.poll_interval_s
         with self.cond:
-            n_active = len(self.active)
-        if n_active < self.max_active and now - self._queue_empty_at >= poll:
+            # jobs waiting for the finisher still hold their stitched maps in memory: they
+            # count against the limit, so at most max_active + 1 jobs are ever held at once
+            in_memory = len(self.active) + max(0, self._finishing - 1)
+        if in_memory < self.max_active and now - self._queue_empty_at >= poll:
             if self._claim():
                 return True
             self._queue_empty_at = now
