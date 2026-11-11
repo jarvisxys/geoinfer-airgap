@@ -169,7 +169,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--only", default="capacity,E4,E2,E3")
     p.add_argument("--out", type=Path, default=Path("docs/figures/e_load_laptop.json"))
-    p.add_argument("--redo", action="store_true", help="re-measure E4 levels already saved")
+    p.add_argument("--redo", action="store_true", help="re-measure runs already saved")
     a = p.parse_args()
     cfg = yaml.safe_load(Path("configs/loadtest.yaml").read_text())
     reqs = [json.loads(line) for line in Path(cfg["requests"]["out"]).read_text().splitlines()]
@@ -219,6 +219,8 @@ def main() -> None:
         rate, sub = level(float(ex["E2"]["load"]))
         for arm in ex["E2"]["arms"]:
             name = f"{arm['batching']}_{arm['max_wait_ms']}ms"
+            if name in res["E2"] and not a.redo:
+                continue
             e = configure(env, base | arm)
             res["E2"][name] = run_once(cfg, e, sub, rate, f"E2 {name}") | {"arm": arm}
             save()
@@ -228,6 +230,8 @@ def main() -> None:
             rate, sub = level(float(frac))
             for arm in ex["E3"]["arms"]:
                 name = f"{arm['queue']}_load{frac}"
+                if name in res["E3"] and not a.redo:
+                    continue
                 e = configure(env, base | arm)
                 res["E3"][name] = run_once(cfg, e, sub, rate, f"E3 {name}") | {"arm": arm}
                 save()
