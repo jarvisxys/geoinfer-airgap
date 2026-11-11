@@ -169,6 +169,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--only", default="capacity,E4,E2,E3")
     p.add_argument("--out", type=Path, default=Path("docs/figures/e_load_laptop.json"))
+    p.add_argument("--redo", action="store_true", help="re-measure E4 levels already saved")
     a = p.parse_args()
     cfg = yaml.safe_load(Path("configs/loadtest.yaml").read_text())
     reqs = [json.loads(line) for line in Path(cfg["requests"]["out"]).read_text().splitlines()]
@@ -208,6 +209,8 @@ def main() -> None:
         e = configure(env, base)
         res.setdefault("E4", {})
         for frac in ex["E4"]["loads"]:
+            if str(frac) in res["E4"] and not a.redo:
+                continue  # resumable: keep levels already measured
             rate, sub = level(frac)
             res["E4"][str(frac)] = run_once(cfg, e, sub, rate, f"E4 load {frac}")
             save()

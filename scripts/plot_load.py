@@ -15,6 +15,8 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 
+from geoinfer.bench.load import summarize_run
+
 FIG = Path("docs/figures")
 C1, C2, C3 = "#2a78d6", "#eb6834", "#1baf7a"  # categorical slots 1-3
 INK2, GRID = "#52514e", "#e4e3df"
@@ -30,6 +32,11 @@ def _hi(r: dict[str, Any], key: str = "p95_s") -> float:
 
 def main() -> None:
     d = json.loads((FIG / "e_load_laptop.json").read_text())
+    # re-summarise every run from its raw records (clock-jump correction, bench.load)
+    for group in ("E4", "E2", "E3"):
+        for k, r in d.get(group, {}).items():
+            d[group][k] = r | summarize_run(r["records"])
+    d["capacity"] = d["capacity"] | summarize_run(d["capacity"]["records"])
     cap = d["capacity"]["capacity_jobs_per_s"]
     plt.rcParams.update(
         {
