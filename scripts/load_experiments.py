@@ -30,9 +30,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from loadtest.replay import call, replay, wait_all
 
+# isort: off
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # loadtest/ at the repo root
+from loadtest.replay import call, replay, wait_all
+# isort: on
 
 from geoinfer.bench.gpu import GpuSampler, nvml_reader
 from geoinfer.bench.load import summarize_run
