@@ -24,12 +24,15 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
 import yaml
 from loadtest.replay import call, replay, wait_all
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # loadtest/ at the repo root
 
 from geoinfer.bench.gpu import GpuSampler, nvml_reader
 from geoinfer.bench.load import summarize_run
@@ -79,6 +82,8 @@ def wait_ready(timeout: float = 180) -> None:
 
 def setup(cfg: dict[str, Any], env: dict[str, str]) -> None:
     data = Path(cfg["data_dir"])
+    if not os.path.ismount(data.parents[len(data.parents) - 3]) and str(data).startswith("/mnt/"):
+        raise SystemExit(f"{data.parents[len(data.parents) - 3]} is not mounted (USB drive?)")
     inbox = data / "inbox"
     for d in ("inbox", "outputs", "scratch"):
         (data / d).mkdir(parents=True, exist_ok=True)
