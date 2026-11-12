@@ -40,8 +40,8 @@ function toast(msg, kind = "") {
 }
 
 const fmt = {
-  km2(m2) { return m2 >= 1e5 ? `${(m2 / 1e6).toFixed(2)} km²` : `${Math.round(m2).toLocaleString()} m²`; },
-  px(n) { return n >= 1e6 ? `${(n / 1e6).toFixed(1)} Mpx` : `${Math.round(n).toLocaleString()} px`; },
+  km2(m2) { return m2 >= 1e4 ? `${(m2 / 1e6).toFixed(m2 >= 1e7 ? 1 : 3)} km²` : `${Math.round(m2).toLocaleString()} m²`; },
+  px(n) { return n >= 1e5 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 2)} Mpx` : `${Math.round(n).toLocaleString()} px`; },
   s(x) { return x == null ? "–" : x < 60 ? `${x.toFixed(1)} s` : `${Math.floor(x / 60)} min ${Math.round(x % 60)} s`; },
   time(iso) { return iso ? new Date(iso).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : ""; },
 };
@@ -496,7 +496,8 @@ $("#run-btn").onclick = async () => {
 };
 function runReady(again) {
   const btn = $("#run-btn");
-  btn.textContent = again ? "Run again (compare another model)" : "Find buildings";
+  btn.textContent = again ? "Run again" : "Find buildings";
+  btn.title = again ? "Run the same area again, for example with another sensor model" : "";
   btn.disabled = !S.aoi;
 }
 
@@ -561,7 +562,7 @@ async function showResult(j) {
   const all = S.overlay.buildings.flatMap((b) => b.rings[0]);
   if (all.length && !S.aoi) fitBox(Math.min(...all.map((p) => p[0])), Math.min(...all.map((p) => p[1])), Math.max(...all.map((p) => p[0])), Math.max(...all.map((p) => p[1])));
   requestDraw();
-  toast(`${S.overlay.count} buildings found.`, "ok");
+  toast(`${S.overlay.count} building${S.overlay.count === 1 ? "" : "s"} found.`, "ok");
 }
 $("#r-show").onchange = (e) => { S.showOverlay = e.target.checked; requestDraw(); };
 $("#r-fill").onchange = (e) => { S.fill = e.target.checked; requestDraw(); };
