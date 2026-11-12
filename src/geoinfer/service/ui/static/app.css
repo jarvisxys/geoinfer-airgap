@@ -145,7 +145,8 @@ input:focus, select:focus { border-color: var(--teal); outline: none;
 .aoi-box, .progress-card, .card { border: 1px solid var(--line); border-radius: 9px;
   padding: 10px 12px; margin-top: 8px; background: #fbfcfd; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
-.stats span { display: block; font-size: 19px; font-weight: 700; }
+.stats span { display: block; font-size: 18px; font-weight: 700; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
 .stats small { color: var(--muted); font-size: 12px; }
 .msg { font-size: 13px; margin: 8px 0 0; }
 .msg.ok { color: var(--ok); }
