@@ -101,6 +101,21 @@ Through the service, the optical model scores pixel IoU 0.6997 on all of D4, aga
 PyTorch (before clean-up), so the service preprocessing matches training. Throughput, p95
 and GPU use are Phase 4 (S4, E1-E6).
 
+### Web interface
+
+With the stack running, open <http://127.0.0.1:8000>. The page is served by the API and
+loads nothing from the internet; the map's background is the scene itself.
+
+- **Map a scene:** pick a scene; select an area (rectangle, polygon, the current view, or
+  typed coordinates) with live km² and size checks; choose the model and priority; watch
+  the job run.
+- **Results:** outlines on the map, building count and area, stage timings, GeoJSON and
+  mask downloads, and *Run again* to compare models on the same area.
+- **Add images:** upload your own GeoTIFF into the local inbox. Each image is checked
+  (CRS, pixel size, bands, data type) with plain-language findings; *Prepare* reprojects it
+  to UTM at 0.5 m as a COG; then add it as a scene.
+- **History:** recent jobs, reopened on the map with a click.
+
 ## Results (Phase 4: engines, batch size, tile and overlap)
 
 Study S4 on the same D4 tiles and pipeline as the service, on the laptop GTX 1650 (4 GB) and
