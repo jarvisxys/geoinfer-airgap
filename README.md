@@ -20,8 +20,6 @@ georeferenced mask in seconds.
 [**Report (PDF)**](report/report.pdf) ·
 [**For developers**](#for-developers)
 
-<img src="docs/figures/ui_demo.gif" alt="Choosing a scene, drawing an area, running the fused model and inspecting the buildings found" width="900">
-
 </div>
 
 ---
@@ -50,7 +48,7 @@ WorldView-2 optical, about 48,000 labelled buildings). Industry reference: Galax
 
 ## Demo video
 
-> 🎬 **3-minute walkthrough: coming soon.** The link will be added here.
+> **3-minute walkthrough: coming soon.** The link will be added here.
 
 <!-- Replace the line above with:
 [![Watch the demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=VIDEO_ID)
@@ -127,13 +125,13 @@ unit-tested on synthetic arrays and keeps the input georeferencing.
 The bundle is about 5 GB, split into three parts because GitHub limits each file to 2 GB.
 Click each link; the download starts straight away.
 
-| File | Size | Link |
+| What | Size | File (click to download) |
 |---|---|---|
-| Installer script | 4 KB | [⬇ install_offline.sh](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/install_offline.sh) |
-| Bundle part 1 of 3 | 1.9 GB | [⬇ geoinfer-1.0.0.tar.part0](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/geoinfer-1.0.0.tar.part0) |
-| Bundle part 2 of 3 | 1.9 GB | [⬇ geoinfer-1.0.0.tar.part1](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/geoinfer-1.0.0.tar.part1) |
-| Bundle part 3 of 3 | 0.9 GB | [⬇ geoinfer-1.0.0.tar.part2](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/geoinfer-1.0.0.tar.part2) |
-| Checksums | 1 KB | [⬇ SHA256SUMS](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/SHA256SUMS) |
+| Installer script | 4 KB | [`install_offline.sh`](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/install_offline.sh) |
+| Bundle part 1 of 3 | 1.9 GB | [`geoinfer-1.0.0.tar.part0`](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/geoinfer-1.0.0.tar.part0) |
+| Bundle part 2 of 3 | 1.9 GB | [`geoinfer-1.0.0.tar.part1`](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/geoinfer-1.0.0.tar.part1) |
+| Bundle part 3 of 3 | 0.9 GB | [`geoinfer-1.0.0.tar.part2`](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/geoinfer-1.0.0.tar.part2) |
+| Checksums | 1 KB | [`SHA256SUMS`](https://github.com/jarvisxys/geoinfer-airgap/releases/latest/download/SHA256SUMS) |
 
 All files are also listed on the [latest release](https://github.com/jarvisxys/geoinfer-airgap/releases/latest) page.
 
@@ -284,7 +282,7 @@ Blue: correct building pixels, red: false alarms, yellow: missed.
 
 ## Report
 
-📄 **[report/report.pdf](report/report.pdf)** (14 pages): problem, existing work, data, block
+**[report/report.pdf](report/report.pdf)** (14 pages): problem, existing work, data, block
 diagram, every DIP stage with intermediate images, models, studies S1–S4, serving
 experiments, the offline service, success and failure cases, and limitations. The LaTeX
 source is [report/report.tex](report/report.tex); rebuild with `make report` or
