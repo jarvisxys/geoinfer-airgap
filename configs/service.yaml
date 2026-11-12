@@ -27,6 +27,10 @@ worker:
     max_wait_ms: 25                 # hold a partial batch while a job is still reading tiles
     max_active_jobs: 2              # claimed jobs in flight (each holds a probability map)
     prefetch_tiles: 16              # normalised tiles read ahead per job
+ui:                                 # web UI (served at /ui by the API)
+  max_upload_gb: 20                 # largest GeoTIFF accepted by the upload
+  prepare_gsd_m: 0.5                # 'Prepare' reprojects uploads to UTM at this pixel size
+  tile_cache: 2048                  # map tiles kept in memory (256 px PNG each)
 # Models the service ships (make service-models assembles them into one registry folder,
 # with registry.yaml, stats/stats.json and one folder per model). Threshold and norm come
 # from each run's eval.json and run.json; the export must have passed its parity check.
