@@ -3,7 +3,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
-        args: ["--maxkb=2000"]   # report figures up to 2 MB (satellite crops)
+        args: ["--maxkb=6000"]   # figures and the compiled report PDF (about 4 MB)
       - id: check-yaml
         exclude: ^docker/compose\.airgap\.yaml$   # Compose merge tags (!override, !reset)
       - id: check-toml

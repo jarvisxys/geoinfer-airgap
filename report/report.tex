@@ -167,45 +167,52 @@ eval\}}). Everything else is the delivery vehicle.
 \centering
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
-  node distance=4mm and 5mm,
   box/.style={draw, rounded corners=2pt, align=center, font=\footnotesize,
-              minimum height=8mm, inner sep=3pt, fill=white},
+              minimum height=9mm, minimum width=27mm, inner sep=3pt, fill=white},
   dip/.style={box, draw=blue!60!black},
   ai/.style={box, draw=orange!80!black, very thick},
   svc/.style={box, draw=black!50, text=black!80},
-  arr/.style={-{Latex[length=2mm]}, thick}]
-\node[svc] (req) {Analyst request\\scene + AOI + mode};
-\node[svc, right=of req] (api) {FastAPI\\validate, 202};
-\node[svc, right=of api] (db) {PostGIS\\queue + results};
-\node[dip, below=9mm of req] (io) {COG windowed\\read (io)};
-\node[dip, right=of io] (norm) {Normalise\\stretch / dB / Lee};
-\node[dip, right=of norm] (tile) {Overlap tiling\\reflect pad};
-\node[ai, right=of tile] (unet) {U-Net R34\\ONNX / TRT, batched};
-\node[dip, below=9mm of unet] (stitch) {Hann-weighted\\stitch (memmap)};
-\node[dip, left=of stitch] (morph) {Threshold +\\open/close + area};
-\node[dip, left=of morph] (vec) {Vectorise +\\simplify};
-\node[dip, left=of vec] (eval) {IoU / F1 / object F1\\seam score};
-\node[svc, below=9mm of morph] (out) {mask.tif (COG) + buildings.geojson + PostGIS rows};
+  arr/.style={-{Latex[length=2mm]}, thick},
+  lab/.style={font=\scriptsize, text=black!70, fill=white, inner sep=1pt}]
+% service row
+\node[svc] (req) at (0, 0) {Analyst / web UI\\scene + area + model};
+\node[svc] (api) at (3.6, 0) {FastAPI\\validate, reply 202};
+\node[svc] (db)  at (7.2, 0) {PostGIS\\job queue + results};
+% DIP pipeline, a U-turn in two rows
+\node[dip] (io)     at (0, -2.3)    {COG windowed read\\(rasterio windows)};
+\node[dip] (norm)   at (3.6, -2.3)  {Normalise\\stretch / dB / Lee};
+\node[dip] (tile)   at (7.2, -2.3)  {Overlap tiling\\512 px, reflect pad};
+\node[ai]  (unet)   at (10.8, -2.3) {U-Net ResNet-34\\ONNX / TensorRT};
+\node[dip] (stitch) at (10.8, -4.1) {Hann-weighted\\stitch (memmap)};
+\node[dip] (morph)  at (7.2, -4.1)  {Threshold +\\open / close + area};
+\node[dip] (vec)    at (3.6, -4.1)  {Vectorise +\\simplify};
+\node[svc, dashed] (eval) at (0, -4.1) {IoU / F1 / object F1\\(offline evaluation)};
+\node[svc, minimum width=60mm] (out) at (3.6, -6.0)
+  {mask.tif (COG) \textbullet{} buildings.geojson \textbullet{} PostGIS rows};
 \begin{scope}[on background layer]
-\node[fill=blue!6, rounded corners=4pt, inner sep=6pt,
-      fit=(io)(norm)(tile)(unet)(stitch)(morph)(vec)(eval),
-      label={[font=\footnotesize\bfseries, text=blue!50!black]south west:DIP core + model (GPU worker)}] {};
+\node[fill=blue!6, draw=blue!25, rounded corners=4pt, inner sep=7pt,
+      fit=(io)(unet)(stitch)(eval)] (core) {};
 \end{scope}
+\node[font=\footnotesize\bfseries, text=blue!50!black, anchor=south east]
+  at ([yshift=1pt]core.north east) {DIP core + model (GPU worker)};
+% arrows
 \draw[arr] (req) -- (api);
 \draw[arr] (api) -- (db);
-\draw[arr] (db.south) |- ++(0,-4mm) -| node[pos=0.25, above, font=\scriptsize]{claim (SKIP LOCKED)} (io.north);
+\draw[arr] (db.south) -- ++(0, -0.55) -| (io.north)
+  node[lab, pos=0.25, above] {worker claims next job (SKIP LOCKED)};
 \draw[arr] (io) -- (norm);
 \draw[arr] (norm) -- (tile);
 \draw[arr] (tile) -- (unet);
 \draw[arr] (unet) -- (stitch);
 \draw[arr] (stitch) -- (morph);
 \draw[arr] (morph) -- (vec);
-\draw[arr] (vec) -- (eval);
-\draw[arr] (vec.south) |- (out.west);
+\draw[arr, dashed] (vec) -- (eval);
+\draw[arr] (vec) -- (out);
 \end{tikzpicture}}
 \caption{Block diagram. Blue: DIP operations; orange: the learnt model; grey: service
-components. The worker claims a job from the PostGIS queue and runs the shaded pipeline;
-evaluation runs on held-out data only.}
+components. The worker claims a job from the PostGIS queue and runs the shaded pipeline
+(left to right, then back along the lower row); evaluation (dashed) runs only on held-out
+data, never inside a job.}
 \label{fig:block}
 \end{figure}
 

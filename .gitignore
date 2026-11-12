@@ -60,6 +60,7 @@ scripts/server/remote.local
 
 # report build output (make report)
 report/*.pdf
+!report/report.pdf
 report/*.aux
 report/*.log
 report/*.out
