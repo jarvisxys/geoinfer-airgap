@@ -43,3 +43,14 @@ def test_summarize_run_latency_and_throughput() -> None:
 
 def test_summarize_run_without_ready_jobs() -> None:
     assert summarize_run([{"job_id": None, "http": 503}])["ready"] == 0
+
+
+def test_clock_jumps_are_corrected_and_counted() -> None:
+    recs = [_rec(i, 1.0, 0, 0, 1, 10 + i) for i in range(5)]
+    # one job's created_at read from a clock 5 h 30 min behind (UTC vs IST)
+    recs[2]["created_at"] = "2026-11-09T18:30:00+00:00"
+    s = summarize_run(recs)
+    assert s["clock_fixes"] == 1
+    assert s["latency"]["p99_s"] < 20  # not ~19 800 s
+    assert s["makespan_s"] == 14.0
+    assert recs[2]["created_at"].startswith("2026-11-09T18:30")  # input left untouched

@@ -17,8 +17,8 @@ FastAPI / PostGIS / Docker service is the delivery vehicle.
 | 1 | DIP core: io, normalisation, SAR despeckle, tiling, stitching, morphology, metrics | `v0.1-dip` | done |
 | 2 | Models: optical / SAR / fused U-Net, S1-S3 studies | `v0.2-models` | done |
 | 3 | Offline service: ONNX, FastAPI, worker, Docker, offline bundle | `v0.3-service` | done (Gate 3 passed) |
-| 4 | Benchmarks: S4 engines, E1-E6 serving experiments | `v0.4-bench` | S4 / E1 / E5 done on both GPUs; scheduler and load-test tooling merged or in review; E2-E4 runs pending (laptop memory, D8) |
-| 5 | Report + demo | `v1.0-submission` | report in `report/` (LaTeX); demo runbook kept outside the repo |
+| 4 | Benchmarks: S4 engines, E1-E6 serving experiments | `v0.4-bench` | done: S4 / E1 / E5 on both GPUs, E2-E4 on the laptop stack (E6 dropped, D8) |
+| 5 | Report + demo | `v1.0-submission` | report in `report/` (`make report`); demo runbook kept outside the repo |
 
 ## Quick start (WSL2 Ubuntu 24.04)
 
@@ -114,6 +114,17 @@ the server RTX PRO 6000 (96 GB); full table in `docs/figures/s4_table.md`, figur
 | Server GPU is not | 23-55 % utilisation; best 625 tiles/s (PyTorch AMP), 615 (ORT FP16) |
 | Whole-scene jobs are I/O and CPU bound | D4 end to end 31-40 km2/min on the server with any engine |
 | Overlap pays | 256 px without overlap 0.698 IoU at 48 km2/min; 512 / 64 (service default) 0.710 at 38 km2/min |
+
+## Results (Phase 4: serving under load)
+
+Laptop stack (GTX 1650), 200 replayed analyst requests (`data/requests/requests_seed42.jsonl`),
+open-loop arrivals; log E12 in `docs/experiments.md`, figure `docs/figures/e_load.png`.
+
+| Experiment | Finding |
+|---|---|
+| E4 offered load | latency flat (p50 4-6 s) up to 0.27 jobs/s (23 km2/min); saturation between 0.27 and 0.37 jobs/s |
+| E2 batching, at 3x | cross-job batching with a 10-25 ms hold-back: +30 % throughput and 2.3x lower p50 than per-job batching; 50 ms is as bad as per-job |
+| E3 queue, at 4x | priority with slow ageing (0.01/s) cuts high-priority p95 from 673 s (FIFO) to 74 s; ageing 0.1/s cancels priority after 50 s |
 
 ## Report
 

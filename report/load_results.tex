@@ -4,27 +4,71 @@ requests (\texttt{data/requests/requests\_seed42.jsonl}, seed 42):
 \item Poisson arrivals at unit rate, scaled to the target rate, so every run sees the same jobs;
 \item 60\,\% optical jobs on the D3 mosaic with square AOIs of 0.5, 1 or 2\,km;
 \item 40\,\% SAR or fused jobs on the demo band with 0.5 or 1\,km AOIs;
-\item 20\,\% high priority.
+\item 20\,\% high priority (priority 5 against 0).
 \end{itemize}
 The replay is open-loop: each request is sent at its scheduled time, whatever the state of
-earlier ones. A closed-loop load generator such as Locust waits for each user's previous
-request, which hides queueing delay at high load. Job latency is taken from the database
-timestamps, from submission to result ready, because the API answers at once (HTTP 202)
-and runs the job in the background.
+earlier ones. A closed-loop generator such as Locust waits for each user's previous
+request, which hides queueing delay at high load. Latency is taken from the database
+timestamps, from submission to result ready.
 
-Capacity is first measured with a burst of 24 requests. E4 then offers 0.25, 0.5, 0.75, 1.0
-and 1.5 times that capacity. E2 compares per-job batching with cross-job batching at a maximum
-wait of 10, 25 and 50\,ms, at 0.75$\times$. E3 compares FIFO with priority plus ageing at
-1.0$\times$ and 1.5$\times$, reading the p95 latency of high-priority jobs. Between runs the
-worker is recreated with the arm's scheduling and the job tables are emptied.
+Between runs, the worker is recreated with the arm's scheduling and the job tables are
+emptied. Load is given in multiples of a capacity measured with a burst of 24 simultaneous
+requests: 0.091\,jobs/s (Decision D8). The stack runs on the laptop: GTX 1650, WSL limited
+to 4.8\,GB of RAM, worker container limited to 4\,GB. AOIs of 5\,km are left out for memory.
 
-\paragraph{Scope (Decision D8).} The college server has no Docker, so these experiments run on
-the laptop stack only. The rates are relative to the measured capacity, because a request
-averages about 50 tiles and the 4\,GB laptop saturates far below the plan's 0.5--4 requests
-per second. AOIs of 5\,km (100\,Mpx per job) are left out for the laptop's memory.
+\paragraph{E4: latency against offered load.}
+Latency stays flat up to 3$\times$ the burst capacity (0.27 jobs/s): p50 is 4--6\,s and
+p95 is 8--14\,s, while throughput grows from 2 to 23\,km$^2$/min. At 4$\times$ the queue
+builds (p50 95\,s, p95 266\,s) while throughput levels off at 22\,km$^2$/min, so the
+saturation point lies between 0.27 and 0.37 jobs/s (Fig.~\ref{fig:load},
+Table~\ref{tab:load}). The burst understates the sustainable rate: 24 jobs arriving at
+once keep two jobs in flight all the time and fill the 4\,GB of GPU memory (peak
+4056\,MiB), whereas steady arrivals rarely overlap below the knee. The GPU stays at
+4--35\,\% utilisation throughout, because reading and normalising tiles (CPU) take most of
+each job's time.
 
-\paragraph{Results.} \emph{The E2--E4 runs are pending: on the laptop, starting the full
-service stack grew the Windows page file on the nearly full system drive, so the runs were
-stopped before they could fill it. The tooling, request file and scheduler are in the
-repository (\texttt{make load-experiments}); this section will report the latency-vs-load
-curve, the batching comparison and the priority comparison once the runs have completed.}
+\paragraph{E2: batching policy at 3$\times$.}
+Batching tiles across jobs is what keeps the service out of saturation. Per-job batches
+(the baseline) reach 14.6\,km$^2$/min with p50 202\,s. Cross-job batches with a 10 or
+25\,ms hold-back reach 18.4--19.2\,km$^2$/min (+30\,\%) with p50 84--89\,s
+(2.3$\times$ lower). A 50\,ms hold-back is as bad as per-job batching (14.3\,km$^2$/min,
+p50 199\,s): the GPU waits for batches to fill while jobs queue, and its utilisation drops
+to 40\,\%.
+
+\paragraph{E3: queue policy.}
+The queue ranks jobs by $\text{priority} + a\cdot t_{\text{wait}}$.
+\begin{itemize}
+\item \textbf{At 4$\times$,} priority with ageing $a = 0.1$/s cuts the p95 latency of
+high-priority jobs from 673\,s (FIFO) to 323\,s ($-52$\,\%) and their p50 from 484\,s to
+184\,s. Normal jobs are no worse off: their p95 is 550\,s, against 704\,s under FIFO.
+\item \textbf{At 3$\times$} that policy gives no gain (high-priority p95 125\,s for
+both). With $a = 0.1$/s, a waiting normal job outranks a newly arrived high-priority job
+after $5/0.1 = 50$\,s, and queue waits at this load exceed that, so the order is close to
+FIFO. Ageing trades the responsiveness of high-priority work against a starvation bound.
+\item \textbf{Slower ageing} ($a = 0.01$/s, so priority holds for 500\,s) gives the
+clearest result. The p95 latency of high-priority jobs falls to 40\,s at 3$\times$
+($-68$\,\% against FIFO) and to 74\,s at 4$\times$ ($-89$\,\%), with p50 of 16 and
+33\,s. Normal jobs pay for it, but within the same order as FIFO: p95 158\,s against
+109\,s at 3$\times$, and 551\,s against 704\,s at 4$\times$. Throughput stays close to
+FIFO (17.6 against 18.3\,km$^2$/min at 3$\times$, 12.6 against 10.7 at 4$\times$),
+because the policy only reorders the same work.
+\end{itemize}
+
+\paragraph{Caveats.} The laptop warmed from 72 to 89\,$^\circ$C over the session, and
+per-job CPU time doubled with it. Comparisons are therefore made within an experiment,
+whose arms ran back to back, and not across experiments. For example, the 3$\times$ point
+of E4 ran cooler than the E2 arms at the same load. The Docker VM clock occasionally jumped
+by 5\,h\,30\,min (UTC against IST). Those timestamps are corrected by the jump and
+counted. After correction, every run's makespan agrees with its client-side wall time to
+within 4\,\%.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{e_load.png}
+\caption{Serving experiments on the laptop stack. Left: E4 job latency (p50, p95) against
+offered load. Middle: E2 throughput by batching policy at 3$\times$ (labels: p95).
+Right: E3 p95 latency of high-priority jobs by queue policy.}
+\label{fig:load}
+\end{figure}
+
+\input{load_table.tex}

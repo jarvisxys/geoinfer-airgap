@@ -14,24 +14,28 @@ scenes:                             # id: file in the inbox (+ SAR file, look di
   d3: {path: d3_optical.tif, sensor: optical}
   demo_fused: {path: demo_optical.tif, sar_path: demo_sar.tif, sensor: fused, orientation: 1}
 data_dir: /mnt/d/geo/service        # GEOINFER_DATA of the load-test stack (D:, not C:)
+worker_mem: 4g                      # worker container limit: 3 models loaded + 2 active jobs (3g OOMs)
 run:
   duration_s: 360                   # arrivals per load level (then the queue drains)
   drain_timeout_s: 1800
   poll_s: 2
   # offered load as a fraction of the measured capacity (jobs/s from the burst run): the
   # plan's 0.5-4 req/s assume a server GPU; the laptop saturates far below 0.5 req/s
-  load_fractions: [0.25, 0.5, 0.75, 1.0, 1.5]
 experiments:
-  E4: {loads: [0.25, 0.5, 0.75, 1.0, 1.5], batching: cross_job, max_wait_ms: 25, queue: priority}
+  # loads up to 4x: the burst capacity (24 jobs at once, VRAM-bound) understates the steady
+  # rate, and latency stayed flat to 1.5x; E2 / E3 run where jobs actually queue
+  E4: {loads: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0], batching: cross_job, max_wait_ms: 25, queue: priority}
   E2:
-    load: 0.75
+    load: 3.0
     arms:
       - {batching: per_job, max_wait_ms: 0}
       - {batching: cross_job, max_wait_ms: 10}
       - {batching: cross_job, max_wait_ms: 25}
       - {batching: cross_job, max_wait_ms: 50}
   E3:
-    loads: [1.0, 1.5]
+    loads: [3.0, 4.0]
     arms:
       - {queue: fifo, ageing_per_s: 0.0}
       - {queue: priority, ageing_per_s: 0.1}
+      # slower ageing: priority 5 outranks a waiting normal job for 500 s instead of 50 s
+      - {queue: priority, ageing_per_s: 0.01}

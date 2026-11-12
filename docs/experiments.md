@@ -303,3 +303,56 @@ clean-trained optical 0.129.
 
 **Reading:** F3, picked as the largest SAR offset, has a phase-correlation peak of only 0.06,
 so it is reported as SAR false detections over clutter, not as a layover shift.
+
+## E12. Serving experiments E2-E4 on the laptop stack (2026-11-11)
+
+**Setup:** `make load-experiments` (`scripts/load_experiments.py`, configs/loadtest.yaml,
+decision D8). Laptop stack: GTX 1650, WSL limited to 4.8 GB RAM with 8 GB swap on D:,
+worker limited to 4 GB (`MALLOC_ARENA_MAX=2`, `GDAL_CACHEMAX=64`), data on D:. Requests:
+`data/requests/requests_seed42.jsonl` (200 jobs, seed 42, Poisson arrivals, AOI 0.5 / 1 / 2 km,
+20 % priority 5), replayed open-loop. Each arm: the worker is recreated with the arm's
+scheduling, the job tables are emptied, the requests are replayed at load x capacity
+(at least 12 jobs, 360 s of arrivals), the queue drains. Latency comes from the database
+timestamps; GPU from NVML at 10 Hz. Figure `docs/figures/e_load.png`, tables
+`docs/figures/e_load_table.md` and `report/load_table.tex`, raw records
+`docs/figures/e_load_laptop.json`.
+
+**Capacity (burst of 24):** 0.091 jobs/s, p50 126 s, GPU memory peak 4056 MiB (the three
+ONNX Runtime sessions fill the 4 GB card).
+
+| E4 load | 0.25x | 0.5x | 0.75x | 1x | 1.5x | 2x | 3x | 4x |
+|---|---|---|---|---|---|---|---|---|
+| p50 (s) | 5.8 | 4.5 | 3.7 | 3.9 | 4.9 | 5.5 | 6.2 | 94.8 |
+| p95 (s) | 14.1 | 9.3 | 8.4 | 11.2 | 9.7 | 12.5 | 13.6 | 266.4 |
+| km2/min | 2.0 | 3.9 | 7.6 | 9.6 | 15.0 | 17.0 | 23.4 | 22.2 |
+
+| E2 at 3x | per job | cross-job 10 ms | cross-job 25 ms | cross-job 50 ms |
+|---|---|---|---|---|
+| p50 / p95 (s) | 202 / 257 | 84 / 117 | 89 / 117 | 199 / 265 |
+| km2/min | 14.6 | 19.2 | 18.4 | 14.3 |
+| GPU util | 60 % | 53 % | 61 % | 40 % |
+
+| E3, p95 (s) | high 3x | normal 3x | high 4x | normal 4x |
+|---|---|---|---|---|
+| FIFO | 126 | 109 | 673 | 704 |
+| priority, ageing 0.1/s | 125 | 172 | 323 | 550 |
+| priority, ageing 0.01/s | 40 | 158 | 74 | 551 |
+
+**Reading:**
+- The burst capacity understates the sustainable rate: latency stays flat to 3x
+  (0.27 jobs/s, 23 km2/min) and the knee lies between 3x and 4x.
+- Cross-job batching with a short hold-back (10-25 ms) gives +30 % throughput and 2.3x lower
+  p50 than per-job batching; a 50 ms hold-back is as bad as per-job (the GPU waits).
+- Priority helps only once jobs queue, and only as long as ageing does not cancel it:
+  priority 5 with ageing 0.1/s lasts 50 s, less than the queue waits at 3x; with 0.01/s the
+  high-priority p95 falls 68 % (3x) and 89 % (4x) against FIFO.
+
+**Caveats:**
+- The laptop warmed from 72 to 89 C; per-job CPU time doubled. Compare arms within an
+  experiment, not across.
+- The Docker VM clock jumps by 5 h 30 min (UTC / IST) now and then; `bench.load` corrects
+  those timestamps (1-49 per run), after which every makespan matches the client wall time
+  within 4 %.
+- The first attempts were killed by the kernel OOM killer (no swap: D: was not mounted when
+  WSL booted) and exposed a runner bug (finished jobs held their maps while waiting for the
+  finisher), fixed before these runs.

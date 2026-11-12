@@ -24,12 +24,17 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+# isort: off
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # loadtest/ at the repo root
 from loadtest.replay import call, replay, wait_all
+# isort: on
 
 from geoinfer.bench.gpu import GpuSampler, nvml_reader
 from geoinfer.bench.load import summarize_run
@@ -79,6 +84,8 @@ def wait_ready(timeout: float = 180) -> None:
 
 def setup(cfg: dict[str, Any], env: dict[str, str]) -> None:
     data = Path(cfg["data_dir"])
+    if not os.path.ismount(data.parents[len(data.parents) - 3]) and str(data).startswith("/mnt/"):
+        raise SystemExit(f"{data.parents[len(data.parents) - 3]} is not mounted (USB drive?)")
     inbox = data / "inbox"
     for d in ("inbox", "outputs", "scratch"):
         (data / d).mkdir(parents=True, exist_ok=True)
@@ -162,10 +169,13 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--only", default="capacity,E4,E2,E3")
     p.add_argument("--out", type=Path, default=Path("docs/figures/e_load_laptop.json"))
+    p.add_argument("--redo", action="store_true", help="re-measure runs already saved")
     a = p.parse_args()
     cfg = yaml.safe_load(Path("configs/loadtest.yaml").read_text())
     reqs = [json.loads(line) for line in Path(cfg["requests"]["out"]).read_text().splitlines()]
-    env = dict(os.environ, GEOINFER_DATA=cfg["data_dir"])
+    env = dict(
+        os.environ, GEOINFER_DATA=cfg["data_dir"], GEOINFER_WORKER_MEM=str(cfg["worker_mem"])
+    )
     res: dict[str, Any] = json.loads(a.out.read_text()) if a.out.exists() else {}
     steps = a.only.split(",")
 
@@ -199,6 +209,8 @@ def main() -> None:
         e = configure(env, base)
         res.setdefault("E4", {})
         for frac in ex["E4"]["loads"]:
+            if str(frac) in res["E4"] and not a.redo:
+                continue  # resumable: keep levels already measured
             rate, sub = level(frac)
             res["E4"][str(frac)] = run_once(cfg, e, sub, rate, f"E4 load {frac}")
             save()
@@ -207,6 +219,8 @@ def main() -> None:
         rate, sub = level(float(ex["E2"]["load"]))
         for arm in ex["E2"]["arms"]:
             name = f"{arm['batching']}_{arm['max_wait_ms']}ms"
+            if name in res["E2"] and not a.redo:
+                continue
             e = configure(env, base | arm)
             res["E2"][name] = run_once(cfg, e, sub, rate, f"E2 {name}") | {"arm": arm}
             save()
@@ -216,6 +230,10 @@ def main() -> None:
             rate, sub = level(float(frac))
             for arm in ex["E3"]["arms"]:
                 name = f"{arm['queue']}_load{frac}"
+                if arm["queue"] == "priority" and float(arm["ageing_per_s"]) != 0.1:
+                    name = f"priority_ageing{arm['ageing_per_s']}_load{frac}"
+                if name in res["E3"] and not a.redo:
+                    continue
                 e = configure(env, base | arm)
                 res["E3"][name] = run_once(cfg, e, sub, rate, f"E3 {name}") | {"arm": arm}
                 save()

@@ -58,6 +58,10 @@ services:
     environment:
       <<: *service-env
       GEOINFER_WORKER_ID: worker-gpu${GEOINFER_GPU:-0}
+      # memory: one glibc arena per thread bloats a multithreaded numpy process; GDAL's
+      # block cache defaults to 5 % of RAM
+      MALLOC_ARENA_MAX: ${MALLOC_ARENA_MAX:-2}
+      GDAL_CACHEMAX: ${GDAL_CACHEMAX:-64}
       # scheduling overrides (empty = configs/service.yaml); set by the load-test driver
       GEOINFER_BATCH_SIZE: ${GEOINFER_BATCH_SIZE:-}
       GEOINFER_BATCHING: ${GEOINFER_BATCHING:-}
@@ -70,7 +74,7 @@ services:
       - "${GEOINFER_MODELS}:/models:ro"
     networks: [backend]
     user: "${GEOINFER_UID:-1000}:${GEOINFER_GID:-1000}"
-    mem_limit: 3g
+    mem_limit: ${GEOINFER_WORKER_MEM:-3g}   # plan section 7: 3g; the load tests (3 models loaded, 2 jobs) need 4g
     stop_grace_period: 120s   # SIGTERM finishes the running job first
     deploy:
       resources:

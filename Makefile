@@ -117,7 +117,20 @@ figures-nb:  ## run notebooks/02_dip_figures.ipynb headless (S2 figures); output
 	uv run --group notebook jupyter nbconvert --to notebook --execute --stdout \
 		--ExecutePreprocessor.timeout=1800 notebooks/02_dip_figures.ipynb > /dev/null
 
-figures: gate0 splits coreg d4-quicklook postprocess-check s1 s1-optical otsu figures-nb  ## rebuild every report figure (~7 min; needs data, stats, D4)
+plot-s4:  ## S4 Pareto figure and table from docs/figures/s4_{laptop,server}.json
+	uv run python scripts/plot_s4.py
+
+plot-load:  ## E2-E4 figure and tables from docs/figures/e_load_laptop.json
+	uv run python scripts/plot_load.py
+
+gallery:  ## success / failure cases on the D4 demo band (GPU, ~3 min; make demo-scene first)
+	uv run python scripts/gallery.py
+
+figures: gate0 splits coreg d4-quicklook postprocess-check s1 s1-optical otsu figures-nb plot-s4 plot-load gallery  ## rebuild every report figure (needs data, stats, D4, demo scene)
+
+TECTONIC ?= tectonic
+report:  ## build report/report.pdf (any LaTeX engine; default tectonic)
+	cd report && $(TECTONIC) -X compile report.tex
 
 train:  ## train one model; CFG is the config, SET the overrides (see train.py --set)
 	uv run python -m geoinfer.train.train --config $(CFG) $(if $(SET),--set $(SET))

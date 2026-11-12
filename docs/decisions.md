@@ -180,5 +180,14 @@ for E5; request mix with `building_stats`, `export_geojson` and `cloudy_optical`
   AOI is a 100 Mpx job needing about 2 GB in the worker; with the database, API and worker
   in the 4.8 GB WSL VM, the first attempt pushed memory into the Windows page file on the
   nearly full system drive. Large scenes are covered by S1 / S4 (40 and 121 Mpx) instead.
+- **(h) Load levels.** The burst capacity (0.091 jobs/s) understates the sustainable rate
+  (latency is flat to 3x), so E4 runs to 4x and E2 / E3 run at 3x and 4x, where jobs queue.
+  E3 adds a slow-ageing arm (0.01/s): with 0.1/s, priority 5 expires after 50 s, shorter
+  than the queue waits.
+- **(i) Worker memory.** The load-test worker runs with 4 GB (`GEOINFER_WORKER_MEM`; the
+  plan's 3 GB stays the default), `MALLOC_ARENA_MAX=2` and `GDAL_CACHEMAX=64`, and WSL needs
+  its swap (on D:) to absorb peaks.
+- **(j) Clock jumps.** The Docker VM clock occasionally jumps by 5 h 30 min; `bench.load`
+  corrects timestamps that are a whole jump away from their run and counts them.
 - **(f) Dropped:** E6 (fault-injection soak) and the Grafana dashboard, to keep time for
   the report; the worker and API expose Prometheus metrics for later use.

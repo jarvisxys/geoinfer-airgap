@@ -1,0 +1,33 @@
+\begin{table}[t]
+\centering\small
+\begin{tabular}{llrrrrrr}
+\toprule
+Exp. & Arm & Load & p50 (s) & p95 (s) & High-prio p95 (s) & km$^2$/min & GPU \\
+\midrule
+cap. & burst of 24 & burst & 125.6 & 235.4 & 39.6 & 8.6 & 63\,\% \\
+E4 & cross-job 25 ms, priority & 0.25$\times$ & 5.8 & 14.1 & 7.9 & 2.0 & 4\,\% \\
+E4 & cross-job 25 ms, priority & 0.50$\times$ & 4.5 & 9.2 & 8.6 & 3.9 & 5\,\% \\
+E4 & cross-job 25 ms, priority & 0.75$\times$ & 3.7 & 8.3 & 6.5 & 7.6 & 10\,\% \\
+E4 & cross-job 25 ms, priority & 1.00$\times$ & 3.9 & 11.2 & 6.3 & 9.6 & 12\,\% \\
+E4 & cross-job 25 ms, priority & 1.50$\times$ & 4.9 & 9.7 & 10.9 & 15.0 & 19\,\% \\
+E4 & cross-job 25 ms, priority & 2.00$\times$ & 5.5 & 12.5 & 12.2 & 17.0 & 22\,\% \\
+E4 & cross-job 25 ms, priority & 3.00$\times$ & 6.2 & 13.6 & 14.0 & 23.4 & 34\,\% \\
+E4 & cross-job 25 ms, priority & 4.00$\times$ & 94.8 & 266.4 & 115.0 & 22.2 & 35\,\% \\
+\midrule
+E2 & per job 0ms & 3.00$\times$ & 201.8 & 256.7 & 201.0 & 14.6 & 60\,\% \\
+E2 & cross job 10ms & 3.00$\times$ & 83.9 & 117.4 & 69.9 & 19.2 & 53\,\% \\
+E2 & cross job 25ms & 3.00$\times$ & 89.3 & 116.7 & 65.7 & 18.4 & 61\,\% \\
+E2 & cross job 50ms & 3.00$\times$ & 198.7 & 264.6 & 209.7 & 14.3 & 40\,\% \\
+\midrule
+E3 & fifo & 3.00$\times$ & 45.7 & 113.1 & 125.8 & 18.3 & 34\,\% \\
+E3 & priority & 3.00$\times$ & 138.1 & 168.4 & 125.0 & 17.0 & 30\,\% \\
+E3 & fifo & 4.00$\times$ & 449.2 & 703.4 & 672.7 & 10.7 & 55\,\% \\
+E3 & priority & 4.00$\times$ & 271.9 & 540.2 & 322.9 & 12.7 & 41\,\% \\
+E3 & priority ageing0.01 & 3.00$\times$ & 34.7 & 155.2 & 40.0 & 17.6 & 37\,\% \\
+E3 & priority ageing0.01 & 4.00$\times$ & 379.1 & 541.5 & 74.2 & 12.6 & 41\,\% \\
+\bottomrule
+\end{tabular}
+\caption{Serving runs on the laptop stack (re-summarised from the raw job records;
+load in multiples of the burst capacity, 0.091 jobs/s).}
+\label{tab:load}
+\end{table}
