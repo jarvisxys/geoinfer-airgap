@@ -274,6 +274,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             depth.labels(status).set(n)
         return Response(generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
 
+    from geoinfer.service.api.ui import add_ui_routes
+
+    add_ui_routes(app, cfg, db)
     return app
 
 

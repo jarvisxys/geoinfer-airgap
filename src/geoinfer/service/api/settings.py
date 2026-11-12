@@ -47,6 +47,15 @@ class WorkerSettings:
 
 
 @dataclass(frozen=True)
+class UiSettings:
+    """Web UI (``ui:`` in the service config)."""
+
+    max_upload_gb: float
+    prepare_gsd_m: float
+    tile_cache: int
+
+
+@dataclass(frozen=True)
 class Settings:
     """Runtime settings of the API and worker."""
 
@@ -60,6 +69,7 @@ class Settings:
     stats_file: Path
     preprocess_config: Path
     worker: WorkerSettings
+    ui: UiSettings
 
 
 def load_settings(path: Path | None = None) -> Settings:
@@ -104,5 +114,10 @@ def load_settings(path: Path | None = None) -> Settings:
                 max_active_jobs=int(_env("MAX_ACTIVE_JOBS", sc["max_active_jobs"])),
                 prefetch_tiles=int(sc["prefetch_tiles"]),
             ),
+        ),
+        ui=UiSettings(
+            max_upload_gb=float(raw["ui"]["max_upload_gb"]),
+            prepare_gsd_m=float(raw["ui"]["prepare_gsd_m"]),
+            tile_cache=int(raw["ui"]["tile_cache"]),
         ),
     )

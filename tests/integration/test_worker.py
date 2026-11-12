@@ -17,7 +17,12 @@ from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session
 
 from geoinfer.service.api.app import create_app
-from geoinfer.service.api.settings import SchedulingSettings, Settings, WorkerSettings
+from geoinfer.service.api.settings import (
+    SchedulingSettings,
+    Settings,
+    UiSettings,
+    WorkerSettings,
+)
 from geoinfer.service.db import queue
 from geoinfer.service.db.migrate import downgrade, upgrade
 from geoinfer.service.db.schema import Building, Job
@@ -85,6 +90,7 @@ def env(tmp_path: Path, make_tiff: MakeTiff, tiny_onnx: Callable[..., Path]) -> 
             metrics_port=0,
             scheduling=SchedulingSettings("cross_job", "priority", 0.1, 25.0, 2, 16),
         ),
+        ui=UiSettings(max_upload_gb=1.0, prepare_gsd_m=0.5, tile_cache=64),
     )
     engine = create_engine(URL)
     with Session(engine) as s:

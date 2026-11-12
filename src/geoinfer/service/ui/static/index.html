@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GeoInfer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b2545'/%3E%3Cpath d='M8 22V12l8-5 8 5v10h-5v-6h-6v6z' fill='%23f2a541'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#13828b"/><path d="M8 22V12l8-5 8 5v10h-5v-6h-6v6z" fill="#f2a541"/></svg>
+    <div><strong>GeoInfer</strong><span>Offline building mapping · SAR + optical</span></div>
+  </div>
+  <div class="chips" id="chips" aria-live="polite">
+    <span class="chip" id="chip-service"><i></i>Service</span>
+    <span class="chip" id="chip-worker"><i></i>Worker</span>
+    <span class="chip" id="chip-queue"><i></i>Queue</span>
+  </div>
+  <button class="ghost" id="help-btn" title="How to use (?)">? Help</button>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <nav class="tabs" role="tablist">
+      <button role="tab" class="tab active" data-tab="workflow">Map a scene</button>
+      <button role="tab" class="tab" data-tab="upload">Add images</button>
+      <button role="tab" class="tab" data-tab="history">History</button>
+    </nav>
+
+    <!-- ===================== WORKFLOW ===================== -->
+    <section class="tabpane active" id="tab-workflow">
+      <ol class="steps">
+        <li class="step" id="step-1">
+          <div class="step-head"><span class="num">1</span><h2>Choose an image</h2><span class="done-mark" aria-hidden="true">✓</span></div>
+          <div class="step-body">
+            <div id="scene-list" class="cards"><p class="muted">Loading scenes…</p></div>
+            <button class="link" data-goto="upload">+ Add your own image</button>
+          </div>
+        </li>
+
+        <li class="step locked" id="step-2">
+          <div class="step-head"><span class="num">2</span><h2>Select an area</h2><span class="done-mark" aria-hidden="true">✓</span></div>
+          <div class="step-body">
+            <div class="seg" role="group" aria-label="Drawing tool">
+              <button class="seg-btn icon" data-tool="pan" title="Move the map (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-6.5V4a1.5 1.5 0 0 1 3 0v8m0-6.5a1.5 1.5 0 0 1 3 0V12m0-4a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-2.7L4.6 14a1.6 1.6 0 0 1 2.6-1.9L8 13"/></svg><span>Pan</span></button>
+              <button class="seg-btn icon active" data-tool="rect" title="Drag a rectangle (R)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1" stroke-dasharray="3 2"/></svg><span>Rectangle</span></button>
+              <button class="seg-btn icon" data-tool="poly" title="Click points, double-click to finish (P)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7-5 7 4-2 11H7z" stroke-dasharray="3 2"/></svg><span>Polygon</span></button>
+              <button class="seg-btn icon" data-tool="view" title="Use everything you see on the map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span>Whole view</span></button>
+            </div>
+            <p class="hint" id="tool-hint">Drag on the map to draw a rectangle.</p>
+            <details class="coords">
+              <summary>Type coordinates instead</summary>
+              <div class="grid4">
+                <label>West (lon)<input id="c-w" inputmode="decimal" placeholder="4.3888"></label>
+                <label>South (lat)<input id="c-s" inputmode="decimal" placeholder="51.9028"></label>
+                <label>East (lon)<input id="c-e" inputmode="decimal" placeholder="4.4036"></label>
+                <label>North (lat)<input id="c-n" inputmode="decimal" placeholder="51.9120"></label>
+              </div>
+              <button class="secondary small" id="c-apply">Use these coordinates</button>
+            </details>
+            <div class="aoi-box" id="aoi-box" hidden>
+              <div class="stats">
+                <div><span id="aoi-area">–</span><small>area</small></div>
+                <div><span id="aoi-size">–</span><small>pixels</small></div>
+                <div><span id="aoi-tiles">–</span><small>tiles (approx.)</small></div>
+              </div>
+              <p class="msg" id="aoi-msg"></p>
+              <button class="link danger" id="aoi-clear">Clear area</button>
+            </div>
+          </div>
+        </li>
+
+        <li class="step locked" id="step-3">
+          <div class="step-head"><span class="num">3</span><h2>Run</h2><span class="done-mark" aria-hidden="true">✓</span></div>
+          <div class="step-body">
+            <label class="field-label">Sensor model</label>
+            <div class="seg" id="mode-seg" role="group" aria-label="Sensor model"></div>
+            <p class="hint" id="mode-hint"></p>
+            <label class="field-label">Priority</label>
+            <div class="seg" id="prio-seg" role="group" aria-label="Priority">
+              <button class="seg-btn active" data-prio="0">Normal</button>
+              <button class="seg-btn" data-prio="5">High</button>
+              <button class="seg-btn" data-prio="10">Urgent</button>
+            </div>
+            <button class="primary big" id="run-btn" disabled>Find buildings</button>
+            <p class="msg" id="run-msg"></p>
+          </div>
+        </li>
+
+        <li class="step locked" id="step-4">
+          <div class="step-head"><span class="num">4</span><h2>Results</h2><span class="done-mark" aria-hidden="true">✓</span></div>
+          <div class="step-body">
+            <div id="job-progress" class="progress-card" hidden>
+              <div class="pipeline">
+                <span data-st="queued">Queued</span><span data-st="running">Processing</span><span data-st="ready">Ready</span>
+              </div>
+              <div class="bar"><div id="job-bar"></div></div>
+              <p class="muted small" id="job-line"></p>
+            </div>
+            <div id="result-box" hidden>
+              <div class="stats">
+                <div><span id="r-count">–</span><small>buildings</small></div>
+                <div><span id="r-area">–</span><small>built-up area</small></div>
+                <div><span id="r-share">–</span><small>of the area</small></div>
+              </div>
+              <div id="r-timings"></div>
+              <div class="row">
+                <label class="check"><input type="checkbox" id="r-show" checked> Show outlines</label>
+                <label class="check"><input type="checkbox" id="r-fill" checked> Fill</label>
+              </div>
+              <div class="row">
+                <a class="secondary small" id="dl-geojson" download>⬇ Buildings (GeoJSON)</a>
+                <a class="secondary small" id="dl-mask" download>⬇ Mask (GeoTIFF)</a>
+              </div>
+              <p class="hint">Click a building on the map to see its area and confidence.</p>
+              <button class="link" id="new-area">↺ Map another area</button>
+            </div>
+            <p class="muted" id="result-empty">Run a job to see its buildings here.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ===================== UPLOAD ===================== -->
+    <section class="tabpane" id="tab-upload">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose a GeoTIFF to add">
+        <div class="dz-icon" aria-hidden="true">⇪</div>
+        <p><strong>Drop a GeoTIFF here</strong> or click to choose a file</p>
+        <p class="muted small">Copied straight into the local inbox. Nothing leaves this computer.</p>
+        <input type="file" id="file-input" accept=".tif,.tiff" hidden>
+      </div>
+      <div class="progress-card" id="up-progress" hidden>
+        <p class="small"><strong id="up-name"></strong> <span id="up-pct"></span></p>
+        <div class="bar"><div id="up-bar"></div></div>
+        <p class="muted small" id="up-speed"></p>
+      </div>
+
+      <div id="inspect-card" class="card" hidden>
+        <h3 id="ins-title">Image check</h3>
+        <p class="muted small" id="ins-sub"></p>
+        <ul class="checks" id="ins-checks"></ul>
+        <div class="row" id="prep-row" hidden>
+          <button class="secondary" id="prep-btn">Prepare image</button>
+          <span class="muted small" id="prep-msg">Reprojects to UTM at 0.5 m and writes a fast-loading GeoTIFF.</span>
+        </div>
+        <form id="reg-form" class="reg" hidden>
+          <h4>Add as a scene</h4>
+          <label>Scene name<input id="reg-id" required pattern="[A-Za-z0-9_.\-]+" title="letters, digits, . _ -"></label>
+          <label>Sensor
+            <select id="reg-sensor">
+              <option value="optical">Optical (4 bands: R, G, B, NIR)</option>
+              <option value="sar">SAR (4 bands in dB)</option>
+              <option value="fused">Optical + SAR (two files on the same grid)</option>
+            </select>
+          </label>
+          <label id="reg-sar-row" hidden>SAR file
+            <select id="reg-sar"></select>
+          </label>
+          <label id="reg-orient-row" hidden>Radar look direction
+            <select id="reg-orient">
+              <option value="1">1 (as the SpaceNet 6 demo)</option>
+              <option value="0">0</option>
+            </select>
+          </label>
+          <button class="primary" type="submit">Add scene</button>
+          <p class="msg" id="reg-msg"></p>
+        </form>
+      </div>
+
+      <h3 class="section-title">Files in the inbox</h3>
+      <p class="muted small">Images already on this computer: copy them to the inbox folder, or upload above.</p>
+      <div id="inbox-list" class="list"><p class="muted">Loading…</p></div>
+    </section>
+
+    <!-- ===================== HISTORY ===================== -->
+    <section class="tabpane" id="tab-history">
+      <div class="row spread"><h3 class="section-title">Recent jobs</h3><button class="link" id="hist-refresh">↻ Refresh</button></div>
+      <div id="job-list" class="list"><p class="muted">Loading…</p></div>
+    </section>
+  </aside>
+
+  <section class="mapwrap" aria-label="Map">
+    <canvas id="map"></canvas>
+    <div class="map-empty" id="map-empty">
+      <div>
+        <svg class="big-icon" viewBox="0 0 64 64" aria-hidden="true"><rect x="24" y="24" width="16" height="16" rx="2"/><path d="M8 18l10-10 8 8-10 10zM38 48l10-10 8 8-10 10zM26 26l-4-4M38 38l4 4M44 20a8 8 0 0 0-8-8M50 20A14 14 0 0 0 36 6"/></svg>
+        <h2>Choose an image to start</h2>
+        <p>Pick a scene on the left, or add your own GeoTIFF under <em>Add images</em>.</p>
+      </div>
+    </div>
+    <div class="map-tools" id="map-tools" hidden>
+      <button class="tool" id="zoom-in" title="Zoom in (+)">+</button>
+      <button class="tool" id="zoom-out" title="Zoom out (−)">−</button>
+      <button class="tool" id="zoom-fit" title="Fit the scene (F)">⤢</button>
+      <div class="layer-switch" id="layer-switch"></div>
+    </div>
+    <div class="map-info" id="map-info" hidden>
+      <span id="cursor-ll">–</span>
+      <span class="scale"><span class="scale-bar" id="scale-bar"></span><span id="scale-label"></span></span>
+    </div>
+    <div class="popup" id="popup" hidden></div>
+    <div class="legend" id="legend" hidden>
+      <span><i class="sw aoi"></i>Area</span><span><i class="sw bld"></i>Building</span>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<div class="modal" id="help" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <button class="ghost close" id="help-close" aria-label="Close">✕</button>
+    <h2 id="help-title">How to use GeoInfer</h2>
+    <ol class="help-steps">
+      <li><strong>Choose an image.</strong> Pick a scene from the list. To use your own, open <em>Add images</em>, drop a GeoTIFF, check it, then add it as a scene.</li>
+      <li><strong>Select an area.</strong> Drag a rectangle, click a polygon (double-click to finish), use the current view, or type coordinates.</li>
+      <li><strong>Run.</strong> Choose the sensor model and priority, then <em>Find buildings</em>. Optical is the most accurate; SAR works through cloud; fused combines both.</li>
+      <li><strong>Results.</strong> Outlines appear on the map. Click a building for its area and confidence, and download the GeoJSON or the mask.</li>
+    </ol>
+    <h3>Map controls</h3>
+    <table class="keys">
+      <tr><td>Drag / mouse wheel</td><td>pan / zoom</td></tr>
+      <tr><td><kbd>H</kbd> <kbd>R</kbd> <kbd>P</kbd></td><td>pan / rectangle / polygon tool</td></tr>
+      <tr><td>Right-drag</td><td>pan with any tool</td></tr>
+      <tr><td><kbd>Enter</kbd> / double-click</td><td>finish polygon</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>cancel drawing</td></tr>
+      <tr><td><kbd>F</kbd> <kbd>+</kbd> <kbd>−</kbd></td><td>fit scene, zoom in, zoom out</td></tr>
+    </table>
+    <h3>What images work</h3>
+    <p>GeoTIFFs with a map projection and about 0.5 m pixels. Optical images need 4 bands (R, G, B, NIR); SAR images 4 bands in dB. <em>Add images</em> checks each file and can reproject it for you. Everything stays on this computer.</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
