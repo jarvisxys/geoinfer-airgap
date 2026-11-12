@@ -83,23 +83,26 @@ Details and references are in section 2 of the [report](report/report.pdf).
 ## How it works
 
 ```mermaid
-flowchart LR
-    U([Analyst<br/>web UI or REST]) -->|scene + area + model| API[FastAPI<br/>validate, reply 202]
-    API --> DB[(PostGIS<br/>job queue + results)]
-    DB -->|worker claims job<br/>SKIP LOCKED| IO
-
-    subgraph W [GPU worker: DIP core + model]
+flowchart TB
+    subgraph SVC [Service]
+        direction LR
+        U([Analyst<br/>web UI or REST]) -->|scene + area + model| API[FastAPI<br/>validate, reply 202]
+        API --> DB[(PostGIS<br/>job queue + results)]
+    end
+    subgraph PRE [GPU worker: infer]
         direction LR
         IO[COG windowed read] --> N[Normalise<br/>stretch / dB / Lee]
         N --> T[Overlap tiling<br/>512 px, reflect pad]
         T --> M{{U-Net ResNet-34<br/>ONNX Runtime / TensorRT<br/>cross-job batches}}
-        M --> S[Hann-weighted stitch<br/>disk-backed]
-        S --> P[Threshold + open/close<br/>+ min area]
-        P --> V[Vectorise + simplify]
     end
-
-    V --> O[/mask.tif COG<br/>buildings.geojson<br/>PostGIS rows/]
-    O --> U
+    subgraph POST [GPU worker: output]
+        direction LR
+        S[Hann-weighted stitch<br/>disk-backed] --> P[Threshold +<br/>open / close + min area]
+        P --> V[Vectorise + simplify]
+        V --> O[/mask.tif COG<br/>buildings.geojson<br/>PostGIS rows/]
+    end
+    SVC -->|worker claims a job<br/>SKIP LOCKED| PRE
+    PRE -->|tile probabilities| POST
 ```
 
 Three containers on a private Docker network: **api** (FastAPI and the web UI), **worker**
